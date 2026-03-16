@@ -34,6 +34,12 @@ export const taskService = {
     return response.data;
   },
 
+  //Get recommendations
+  getRecommendations: async (taskId: number) => {
+    const response = await api.get(`/tasks/${taskId}/recommend/`);
+    return response.data;
+  },
+
   // Delete task
   deleteTask: async (id: number): Promise<void> => {
     await api.delete(`/tasks/${id}/`);

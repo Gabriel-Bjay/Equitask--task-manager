@@ -7,16 +7,14 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
   ResponsiveContainer,
 } from 'recharts';
 
 interface WorkloadChartProps {
-  data?: any[];
+  data?: { name: string; hours: number }[];
 }
 
 const WorkloadChart: React.FC<WorkloadChartProps> = ({ data }) => {
-  // Sample data if none provided
   const chartData = data || [
     { name: 'Mon', hours: 8 },
     { name: 'Tue', hours: 6 },
@@ -27,18 +25,45 @@ const WorkloadChart: React.FC<WorkloadChartProps> = ({ data }) => {
 
   return (
     <Paper sx={{ p: 3 }}>
-      <Typography variant="h6" gutterBottom>
-        Weekly Workload
-      </Typography>
-      <Box sx={{ width: '100%', height: 300 }}>
-        <ResponsiveContainer>
-          <BarChart data={chartData}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="name" />
-            <YAxis />
-            <Tooltip />
-            <Legend />
-            <Bar dataKey="hours" fill="#1976d2" name="Hours" />
+      <Box sx={{ mb: 2.5 }}>
+        <Typography sx={{ fontSize: 16, fontWeight: 700, color: '#1A3C5E' }}>
+          Weekly Workload
+        </Typography>
+        <Typography variant="caption" sx={{ color: '#94A3B8' }}>
+          Estimated hours per day this week
+        </Typography>
+      </Box>
+      <Box sx={{ width: '100%', height: 260 }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={chartData} barSize={36}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#EEF2F6" vertical={false} />
+            <XAxis
+              dataKey="name"
+              tick={{ fill: '#94A3B8', fontSize: 12 }}
+              axisLine={false}
+              tickLine={false}
+            />
+            <YAxis
+              tick={{ fill: '#94A3B8', fontSize: 12 }}
+              axisLine={false}
+              tickLine={false}
+              width={30}
+            />
+            <Tooltip
+              contentStyle={{
+                borderRadius: 10,
+                border: '1px solid #EEF2F6',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+                fontSize: 13,
+              }}
+              cursor={{ fill: '#F8FAFC' }}
+            />
+            <Bar
+              dataKey="hours"
+              fill="#028090"
+              radius={[6, 6, 0, 0]}
+              name="Hours"
+            />
           </BarChart>
         </ResponsiveContainer>
       </Box>

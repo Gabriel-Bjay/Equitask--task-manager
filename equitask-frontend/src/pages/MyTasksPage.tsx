@@ -40,44 +40,50 @@ const MyTasksPage: React.FC = () => {
 
   const getTasksByTab = () => {
     switch (selectedTab) {
-      case 0: // Active
-        return filterTasks(['assigned', 'in_progress']);
-      case 1: // Completed
-        return filterTasks(['completed']);
-      case 2: // Overdue
-        return filterTasks(['overdue']);
-      default:
-        return tasks;
+      case 0: return filterTasks(['assigned', 'in_progress']);
+      case 1: return filterTasks(['completed']);
+      case 2: return filterTasks(['overdue']);
+      default: return tasks;
     }
   };
-
-  const displayTasks = getTasksByTab();
 
   return (
     <Layout>
       <Box>
-        <Typography variant="h4" gutterBottom>
+        <Typography sx={{ fontSize: 24, fontWeight: 700, color: '#1A3C5E' }}>
           My Tasks
         </Typography>
-        <Typography variant="body1" color="textSecondary" paragraph>
+        <Typography variant="body2" sx={{ color: '#94A3B8', mt: 0.5, mb: 3 }}>
           Tasks assigned to you
         </Typography>
 
-        <Tabs value={selectedTab} onChange={handleTabChange} sx={{ mb: 3 }}>
-          <Tab
-            label={`Active (${filterTasks(['assigned', 'in_progress']).length})`}
-          />
+        <Tabs
+          value={selectedTab}
+          onChange={handleTabChange}
+          sx={{
+            mb: 3,
+            '& .MuiTab-root': { textTransform: 'none', fontWeight: 500 },
+            '& .Mui-selected': { color: '#028090', fontWeight: 700 },
+            '& .MuiTabs-indicator': { bgcolor: '#028090' },
+          }}
+        >
+          <Tab label={`Active (${filterTasks(['assigned', 'in_progress']).length})`} />
           <Tab label={`Completed (${filterTasks(['completed']).length})`} />
           <Tab label={`Overdue (${filterTasks(['overdue']).length})`} />
         </Tabs>
 
         <TaskList
-          tasks={displayTasks}
+          tasks={getTasksByTab()}
           onView={handleView}
+          onStatusChange={() => dispatch(fetchMyTasks())}
           showFilters={false}
         />
 
-        <TaskDetails task={selectedTask} open={detailsOpen} onClose={handleDetailsClose} />
+        <TaskDetails
+          task={selectedTask}
+          open={detailsOpen}
+          onClose={handleDetailsClose}
+        />
       </Box>
     </Layout>
   );

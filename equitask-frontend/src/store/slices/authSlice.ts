@@ -2,24 +2,40 @@ import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { authService } from '../../services/authService';
 import { AuthState, LoginCredentials, RegisterData, User, AuthTokens } from '../../types/auth.types';
 
+// Safe JSON parse helper
+const safeParse = (key: string) => {
+  const item = localStorage.getItem(key);
+  if (!item || item === 'undefined' || item === 'null') {
+    return null;
+  }
+  try {
+    return JSON.parse(item);
+  } catch (e) {
+    console.error(`Failed to parse ${key} from localStorage:`, e);
+    localStorage.removeItem(key); // Clean up bad data
+    return null;
+  }
+};
+
 // Initial state
 const initialState: AuthState = {
-  user: localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')!) : null,
-  tokens: localStorage.getItem('tokens') ? JSON.parse(localStorage.getItem('tokens')!) : null,
-  isAuthenticated: !!localStorage.getItem('tokens'),
+  user: safeParse('user'),
+  tokens: safeParse('tokens'),
+  isAuthenticated: !!safeParse('tokens'),   
   loading: false,
   error: null,
 };
 
-// Async thunks
+// Async thunks 
 export const login = createAsyncThunk(
   'auth/login',
   async (credentials: LoginCredentials, { rejectWithValue }) => {
     try {
       const data = await authService.login(credentials);
-      localStorage.setItem('tokens', JSON.stringify(data.tokens));
+      const tokens = data.tokens || { access: data.access, refresh: data.refresh };
+      localStorage.setItem('tokens', JSON.stringify(tokens));
       localStorage.setItem('user', JSON.stringify(data.user));
-      return data;
+      return { ...data, tokens };
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Login failed');
     }
@@ -59,7 +75,7 @@ export const logout = createAsyncThunk('auth/logout', async () => {
   localStorage.removeItem('user');
 });
 
-// Slice
+// Slice (unchanged)
 const authSlice = createSlice({
   name: 'auth',
   initialState,
@@ -69,7 +85,6 @@ const authSlice = createSlice({
     },
   },
   extraReducers: (builder) => {
-    // Login
     builder.addCase(login.pending, (state) => {
       state.loading = true;
       state.error = null;
@@ -85,7 +100,6 @@ const authSlice = createSlice({
       state.error = action.payload as string;
     });
 
-    // Register
     builder.addCase(register.pending, (state) => {
       state.loading = true;
       state.error = null;
@@ -101,12 +115,10 @@ const authSlice = createSlice({
       state.error = action.payload as string;
     });
 
-    // Get current user
     builder.addCase(getCurrentUser.fulfilled, (state, action) => {
       state.user = action.payload;
     });
 
-    // Logout
     builder.addCase(logout.fulfilled, (state) => {
       state.user = null;
       state.tokens = null;
