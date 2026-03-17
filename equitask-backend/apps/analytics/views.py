@@ -1,9 +1,9 @@
-from rest_framework import viewsets
-from rest_framework.decorators import action
-from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
-from django.contrib.auth import get_user_model
-from django.db.models import Count, Q
+from rest_framework import viewsets  # type: ignore
+from rest_framework.decorators import action  # type: ignore
+from rest_framework.response import Response  # type: ignore
+from rest_framework.permissions import IsAuthenticated  # type: ignore
+from django.contrib.auth import get_user_model  # type: ignore
+from django.db.models import Count, Q  # type: ignore
 from apps.tasks.models import Task, TaskAssignment
 
 User = get_user_model()

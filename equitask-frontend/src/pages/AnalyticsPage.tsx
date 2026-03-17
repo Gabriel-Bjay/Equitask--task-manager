@@ -1,6 +1,7 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import React, { useEffect, useState } from 'react';
 import {
-  Box, Typography, Grid, Paper, Skeleton,
+  Box, Typography, Paper, Skeleton,
   Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow, Chip, LinearProgress, Avatar,
 } from '@mui/material';
@@ -15,9 +16,10 @@ import RAPIDCompliance from '../components/dashboard/RAPIDCompliance';
 import WorkloadChart from '../components/dashboard/WorkloadChart';
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid,
 } from 'recharts';
 import api from '../services/api';
+import Grid from '@mui/material/Grid';
 
 interface TeamMember {
   id: number;
