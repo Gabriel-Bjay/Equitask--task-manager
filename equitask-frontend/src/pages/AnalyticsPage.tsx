@@ -18,6 +18,7 @@ import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
 } from 'recharts';
+import FairnessPanel from '../components/analytics/FairnessPanel';
 import api from '../services/api';
 import Grid from '@mui/material/Grid';
 
@@ -462,6 +463,7 @@ const AnalyticsPage: React.FC = () => {
         </Grid>
 
       </Box>
+      <FairnessPanel />
     </Layout>
   );
 };
