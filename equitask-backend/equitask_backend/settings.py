@@ -207,3 +207,6 @@ LOGGING = {
         'level': 'INFO',
     },
 }
+# Dev: run tasks inline when no broker is available. Keep False in production.
+CELERY_TASK_ALWAYS_EAGER = config('CELERY_TASK_ALWAYS_EAGER', default=False, cast=bool)
+CELERY_TASK_EAGER_PROPAGATES = True
