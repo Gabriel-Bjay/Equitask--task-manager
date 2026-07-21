@@ -87,3 +87,44 @@ class TaskRecommendation(models.Model):
         }
 
 
+
+class RecommendationWeights(models.Model):
+    """Versioned component weights used by the engine."""
+    SOURCE_CHOICES = [
+        ('default', 'Expert default'),
+        ('learned', 'Learned from outcomes'),
+    ]
+
+    skill = models.FloatField(default=0.30)
+    workload = models.FloatField(default=0.25)
+    performance = models.FloatField(default=0.25)
+    fairness = models.FloatField(default=0.15)
+    urgency = models.FloatField(default=0.05)
+
+    version = models.IntegerField(default=1)
+    source = models.CharField(max_length=20, choices=SOURCE_CHOICES, default='default')
+    n_samples = models.IntegerField(default=0, help_text="Number of outcomes used to train")
+    is_active = models.BooleanField(default=True)
+    trained_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'recommendation_weights'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        state = 'active' if self.is_active else 'inactive'
+        return f"Weights v{self.version} ({self.source}, {state})"
+
+    @classmethod
+    def get_active(cls):
+        return cls.objects.filter(is_active=True).order_by('-created_at').first()
+
+    def as_dict(self):
+        return {
+            'skill': self.skill,
+            'workload': self.workload,
+            'performance': self.performance,
+            'fairness': self.fairness,
+            'urgency': self.urgency,
+        }

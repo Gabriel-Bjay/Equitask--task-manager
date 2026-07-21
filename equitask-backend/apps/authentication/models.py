@@ -1,6 +1,8 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.core.validators import EmailValidator
+from django.conf import settings
+from django.core.validators import MinValueValidator, MaxValueValidator
 
 class User(AbstractUser):
     """
@@ -115,3 +117,31 @@ class User(AbstractUser):
             skills.remove(skill)
             self.skills = skills
             self.save(update_fields=['skills'])
+
+
+
+class UserSkill(models.Model):
+    """Skill proficiency per user (1 = novice, 5 = expert)."""
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='skill_entries',
+    )
+    skill = models.CharField(max_length=100)
+    proficiency = models.IntegerField(
+        default=3,
+        validators=[MinValueValidator(1), MaxValueValidator(5)],
+        help_text="1 (novice) to 5 (expert)",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'user_skills'
+        constraints = [
+            models.UniqueConstraint(fields=['user', 'skill'], name='unique_user_skill'),
+        ]
+        indexes = [models.Index(fields=['user'])]
+
+    def __str__(self):
+        return f"{self.user.email}: {self.skill} (level {self.proficiency})"
