@@ -5,8 +5,36 @@ from rest_framework.permissions import IsAuthenticated  # type: ignore
 from django.contrib.auth import get_user_model  # type: ignore
 from django.db.models import Count, Q  # type: ignore
 from apps.tasks.models import Task, TaskAssignment
+from apps.analytics.models import UserWorkloadMetrics
 
 User = get_user_model()
+
+# Default hours assumed for an active task that has no estimate recorded. Kept
+# in step with the allocation engine's UNKNOWN_TASK_HOURS so the fairness view
+# and the engine reason about workload on the same scale.
+DEFAULT_TASK_HOURS = 8
+
+# Assignments whose task is in one of these statuses count as current, open
+# workload for fairness purposes.
+ACTIVE_TASK_STATUSES = ['assigned', 'in_progress']
+
+
+def _gini(values):
+    """Return the Gini coefficient of a list of non-negative numbers.
+
+    0.0 means perfect equality (every member carries the same load); values
+    closer to 1.0 mean the load is concentrated on a few members. Returns 0.0
+    for an empty list or when the total is zero.
+    """
+    ordered = sorted(float(v) for v in values)
+    n = len(ordered)
+    total = sum(ordered)
+    if n == 0 or total == 0:
+        return 0.0
+    cumulative = sum((index + 1) * value for index, value in enumerate(ordered))
+    gini = (2 * cumulative) / (n * total) - (n + 1) / n
+    # Guard against tiny negative floating-point noise near perfect equality.
+    return round(max(0.0, gini), 4)
 
 
 class AnalyticsDashboardViewSet(viewsets.ViewSet):
@@ -152,6 +180,83 @@ class AnalyticsDashboardViewSet(viewsets.ViewSet):
             'by_category': by_category,
             'by_priority': by_priority,
             'team_workload': team_data,
+        })
+
+    @action(detail=False, methods=['get'])
+    def fairness(self, request):
+        """Workload fairness across active team members.
+
+        Workload is measured as the sum of estimated hours across each member's
+        active assignments (task status assigned or in progress). Tasks with no
+        estimate fall back to DEFAULT_TASK_HOURS. Members with no active work
+        are included as zero, because idle capacity is part of the fairness
+        picture. The response reports each member's workload and intensity plus
+        distribution statistics: mean, population variance, standard deviation,
+        coefficient of variation, and the Gini coefficient.
+        """
+        members = User.objects.filter(
+            is_active=True,
+            role__in=['team_member', 'manager'],
+        ).order_by('id')
+
+        member_rows = []
+        hours_vector = []
+        for member in members:
+            task_ids = TaskAssignment.objects.filter(
+                assigned_to=member,
+                is_active=True,
+                task__status__in=ACTIVE_TASK_STATUSES,
+            ).values_list('task_id', flat=True)
+
+            estimates = list(
+                Task.objects.filter(id__in=task_ids)
+                .values_list('estimated_hours', flat=True)
+            )
+
+            workload_hours = 0.0
+            for estimate in estimates:
+                workload_hours += (
+                    float(estimate) if estimate is not None
+                    else float(DEFAULT_TASK_HOURS)
+                )
+
+            hours_vector.append(workload_hours)
+            member_rows.append({
+                'id': member.id,
+                'name': member.get_full_name() or member.username,
+                'role': member.role,
+                'active_tasks': len(estimates),
+                'workload_hours': round(workload_hours, 2),
+                'intensity': UserWorkloadMetrics.determine_workload_intensity(
+                    workload_hours
+                ),
+            })
+
+        member_rows.sort(key=lambda row: row['workload_hours'], reverse=True)
+
+        n = len(hours_vector)
+        mean = sum(hours_vector) / n if n else 0.0
+        variance = (
+            sum((hours - mean) ** 2 for hours in hours_vector) / n
+            if n else 0.0
+        )
+        std_dev = variance ** 0.5
+        coefficient_of_variation = (std_dev / mean) if mean > 0 else 0.0
+
+        return Response({
+            'metric': 'active_estimated_hours',
+            'default_task_hours': DEFAULT_TASK_HOURS,
+            'members': member_rows,
+            'distribution': {
+                'members_counted': n,
+                'mean_hours': round(mean, 2),
+                'variance': round(variance, 2),
+                'std_dev': round(std_dev, 2),
+                'coefficient_of_variation': round(coefficient_of_variation, 4),
+                'gini_coefficient': _gini(hours_vector),
+                'min_hours': round(min(hours_vector), 2) if hours_vector else 0.0,
+                'max_hours': round(max(hours_vector), 2) if hours_vector else 0.0,
+            },
         })
 
 
