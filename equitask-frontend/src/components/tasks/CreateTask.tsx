@@ -95,7 +95,7 @@ const CreateTask: React.FC<CreateTaskProps> = ({ open, onClose }) => {
         <DialogTitle>Create New Task</DialogTitle>
         <DialogContent>
           <Grid container spacing={2} sx={{ mt: 1 }}>
-            <Grid item xs={12}>
+            <Grid size={12}>
               <TextField
                 required
                 fullWidth
@@ -106,7 +106,7 @@ const CreateTask: React.FC<CreateTaskProps> = ({ open, onClose }) => {
               />
             </Grid>
 
-            <Grid item xs={12}>
+            <Grid size={12}>
               <TextField
                 required
                 fullWidth
@@ -119,7 +119,11 @@ const CreateTask: React.FC<CreateTaskProps> = ({ open, onClose }) => {
               />
             </Grid>
 
-            <Grid item xs={12} sm={6}>
+            <Grid
+              size={{
+                xs: 12,
+                sm: 6
+              }}>
               <FormControl fullWidth required>
                 <InputLabel>Category</InputLabel>
                 <Select
@@ -139,7 +143,11 @@ const CreateTask: React.FC<CreateTaskProps> = ({ open, onClose }) => {
               </FormControl>
             </Grid>
 
-            <Grid item xs={12} sm={6}>
+            <Grid
+              size={{
+                xs: 12,
+                sm: 6
+              }}>
               <FormControl fullWidth required>
                 <InputLabel>Priority</InputLabel>
                 <Select
@@ -159,7 +167,11 @@ const CreateTask: React.FC<CreateTaskProps> = ({ open, onClose }) => {
               </FormControl>
             </Grid>
 
-            <Grid item xs={12} sm={6}>
+            <Grid
+              size={{
+                xs: 12,
+                sm: 6
+              }}>
               <TextField
                 required
                 fullWidth
@@ -172,7 +184,11 @@ const CreateTask: React.FC<CreateTaskProps> = ({ open, onClose }) => {
               />
             </Grid>
 
-            <Grid item xs={12} sm={6}>
+            <Grid
+              size={{
+                xs: 12,
+                sm: 6
+              }}>
               <TextField
                 required
                 fullWidth
@@ -185,7 +201,7 @@ const CreateTask: React.FC<CreateTaskProps> = ({ open, onClose }) => {
               />
             </Grid>
 
-            <Grid item xs={12}>
+            <Grid size={12}>
               <TextField
                 fullWidth
                 type="datetime-local"
@@ -197,7 +213,7 @@ const CreateTask: React.FC<CreateTaskProps> = ({ open, onClose }) => {
               />
             </Grid>
 
-            <Grid item xs={12}>
+            <Grid size={12}>
               <TextField
                 fullWidth
                 label="Add Required Skill"

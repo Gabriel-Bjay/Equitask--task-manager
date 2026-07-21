@@ -71,14 +71,25 @@ const DashboardPage: React.FC = () => {
         {loading ? (
           <Grid container spacing={3} sx={{ mb: 4 }}>
             {[1, 2, 3, 4].map((i) => (
-              <Grid item xs={12} sm={6} md={3} key={i}>
+              <Grid
+                key={i}
+                size={{
+                  xs: 12,
+                  sm: 6,
+                  md: 3
+                }}>
                 <Skeleton variant="rounded" height={110} sx={{ borderRadius: 3 }} />
               </Grid>
             ))}
           </Grid>
         ) : (
           <Grid container spacing={3} sx={{ mb: 4 }}>
-            <Grid item xs={12} sm={6} md={3}>
+            <Grid
+              size={{
+                xs: 12,
+                sm: 6,
+                md: 3
+              }}>
               <StatsCard
                 title="Total Tasks"
                 value={stats.total}
@@ -87,7 +98,12 @@ const DashboardPage: React.FC = () => {
                 subtitle="All assigned tasks"
               />
             </Grid>
-            <Grid item xs={12} sm={6} md={3}>
+            <Grid
+              size={{
+                xs: 12,
+                sm: 6,
+                md: 3
+              }}>
               <StatsCard
                 title="Completed"
                 value={stats.completed}
@@ -96,7 +112,12 @@ const DashboardPage: React.FC = () => {
                 subtitle={`${completionRate}% completion rate`}
               />
             </Grid>
-            <Grid item xs={12} sm={6} md={3}>
+            <Grid
+              size={{
+                xs: 12,
+                sm: 6,
+                md: 3
+              }}>
               <StatsCard
                 title="In Progress"
                 value={stats.pending}
@@ -105,7 +126,12 @@ const DashboardPage: React.FC = () => {
                 subtitle="Active tasks"
               />
             </Grid>
-            <Grid item xs={12} sm={6} md={3}>
+            <Grid
+              size={{
+                xs: 12,
+                sm: 6,
+                md: 3
+              }}>
               <StatsCard
                 title="Overdue"
                 value={stats.overdue}
@@ -201,7 +227,7 @@ const DashboardPage: React.FC = () => {
             </Box>
           ) : (
             // Horizontal scrolling row of task cards
-            <Box sx={{
+            (<Box sx={{
               display: 'flex', gap: 2,
               overflowX: 'auto', pb: 1,
               '&::-webkit-scrollbar': { height: 4 },
@@ -257,16 +283,24 @@ const DashboardPage: React.FC = () => {
                   />
                 </Box>
               ))}
-            </Box>
+            </Box>)
           )}
         </Paper>
 
         {/* Bottom row — RAPID (left) + Workload chart (right) */}
         <Grid container spacing={3}>
-          <Grid item xs={12} md={5}>
+          <Grid
+            size={{
+              xs: 12,
+              md: 5
+            }}>
             <RAPIDCompliance />
           </Grid>
-          <Grid item xs={12} md={7}>
+          <Grid
+            size={{
+              xs: 12,
+              md: 7
+            }}>
             <WorkloadChart />
           </Grid>
         </Grid>

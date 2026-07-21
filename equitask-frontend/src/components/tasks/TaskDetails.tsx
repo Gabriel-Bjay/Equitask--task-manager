@@ -37,7 +37,6 @@ const TaskDetails: React.FC<TaskDetailsProps> = ({ task, open, onClose }) => {
       <DialogTitle>
         <Typography variant="h5">{task.title}</Typography>
       </DialogTitle>
-
       <DialogContent>
         <Box sx={{ mb: 2, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
           <Chip
@@ -63,7 +62,11 @@ const TaskDetails: React.FC<TaskDetailsProps> = ({ task, open, onClose }) => {
         <Divider sx={{ my: 2 }} />
 
         <Grid container spacing={2}>
-          <Grid item xs={12} sm={6}>
+          <Grid
+            size={{
+              xs: 12,
+              sm: 6
+            }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
               <ScheduleIcon color="action" />
               <Box>
@@ -77,7 +80,11 @@ const TaskDetails: React.FC<TaskDetailsProps> = ({ task, open, onClose }) => {
             </Box>
           </Grid>
 
-          <Grid item xs={12} sm={6}>
+          <Grid
+            size={{
+              xs: 12,
+              sm: 6
+            }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
               <CategoryIcon color="action" />
               <Box>
@@ -89,14 +96,22 @@ const TaskDetails: React.FC<TaskDetailsProps> = ({ task, open, onClose }) => {
             </Box>
           </Grid>
 
-          <Grid item xs={12} sm={6}>
+          <Grid
+            size={{
+              xs: 12,
+              sm: 6
+            }}>
             <Typography variant="caption" color="textSecondary">
               Complexity Score
             </Typography>
             <Typography variant="body2">{task.complexity_score}/10</Typography>
           </Grid>
 
-          <Grid item xs={12} sm={6}>
+          <Grid
+            size={{
+              xs: 12,
+              sm: 6
+            }}>
             <Typography variant="caption" color="textSecondary">
               Created
             </Typography>
@@ -120,7 +135,6 @@ const TaskDetails: React.FC<TaskDetailsProps> = ({ task, open, onClose }) => {
           </>
         )}
       </DialogContent>
-
       <DialogActions>
         <Button onClick={onClose}>Close</Button>
       </DialogActions>

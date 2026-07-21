@@ -85,7 +85,11 @@ const ProfilePage: React.FC = () => {
 
         <Grid container spacing={3}>
           {/* Left — Avatar + role info */}
-          <Grid item xs={12} md={4}>
+          <Grid
+            size={{
+              xs: 12,
+              md: 4
+            }}>
             <Paper sx={{ p: 3, textAlign: 'center' }}>
               <Avatar sx={{
                 width: 90, height: 90,
@@ -152,46 +156,66 @@ const ProfilePage: React.FC = () => {
           </Grid>
 
           {/* Right — Edit form */}
-          <Grid item xs={12} md={8}>
+          <Grid
+            size={{
+              xs: 12,
+              md: 8
+            }}>
             <Paper sx={{ p: 3 }}>
               <Typography sx={{ fontSize: 16, fontWeight: 700, color: '#1A3C5E', mb: 2.5 }}>
                 Personal Information
               </Typography>
 
               <Grid container spacing={2}>
-                <Grid item xs={12} sm={6}>
+                <Grid
+                  size={{
+                    xs: 12,
+                    sm: 6
+                  }}>
                   <TextField
                     fullWidth label="First Name" name="first_name"
                     value={formData.first_name} onChange={handleChange}
                   />
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid
+                  size={{
+                    xs: 12,
+                    sm: 6
+                  }}>
                   <TextField
                     fullWidth label="Last Name" name="last_name"
                     value={formData.last_name} onChange={handleChange}
                   />
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid
+                  size={{
+                    xs: 12,
+                    sm: 6
+                  }}>
                   <TextField
                     fullWidth label="Username" name="username"
                     value={formData.username} onChange={handleChange}
                   />
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid
+                  size={{
+                    xs: 12,
+                    sm: 6
+                  }}>
                   <TextField
                     fullWidth label="Phone" name="phone"
                     value={formData.phone} onChange={handleChange}
                     placeholder="+254 700 000 000"
                   />
                 </Grid>
-                <Grid item xs={12}>
+                <Grid size={12}>
                   <TextField
                     fullWidth label="Department" name="department"
                     value={formData.department} onChange={handleChange}
                     placeholder="e.g. Engineering, Design, Marketing"
                   />
                 </Grid>
-                <Grid item xs={12}>
+                <Grid size={12}>
                   <TextField
                     fullWidth label="Email address"
                     value={user?.email || ''}

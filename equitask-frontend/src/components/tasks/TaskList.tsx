@@ -46,7 +46,11 @@ const TaskList: React.FC<TaskListProps> = ({
           boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
         }}>
           <Grid container spacing={2} alignItems="center">
-            <Grid item xs={12} md={4}>
+            <Grid
+              size={{
+                xs: 12,
+                md: 4
+              }}>
               <TextField
                 fullWidth size="small"
                 placeholder="Search tasks..."
@@ -61,7 +65,12 @@ const TaskList: React.FC<TaskListProps> = ({
                 }}
               />
             </Grid>
-            <Grid item xs={12} sm={4} md={2.5}>
+            <Grid
+              size={{
+                xs: 12,
+                sm: 4,
+                md: 2.5
+              }}>
               <TextField
                 select fullWidth size="small" label="Status"
                 value={statusFilter}
@@ -73,7 +82,12 @@ const TaskList: React.FC<TaskListProps> = ({
                 ))}
               </TextField>
             </Grid>
-            <Grid item xs={12} sm={4} md={2.5}>
+            <Grid
+              size={{
+                xs: 12,
+                sm: 4,
+                md: 2.5
+              }}>
               <TextField
                 select fullWidth size="small" label="Priority"
                 value={priorityFilter}
@@ -85,7 +99,12 @@ const TaskList: React.FC<TaskListProps> = ({
                 ))}
               </TextField>
             </Grid>
-            <Grid item xs={12} sm={4} md={2.5}>
+            <Grid
+              size={{
+                xs: 12,
+                sm: 4,
+                md: 2.5
+              }}>
               <TextField
                 select fullWidth size="small" label="Category"
                 value={categoryFilter}
@@ -120,7 +139,6 @@ const TaskList: React.FC<TaskListProps> = ({
           )}
         </Box>
       )}
-
       {filteredTasks.length === 0 ? (
         <Box sx={{
           textAlign: 'center', py: 10,

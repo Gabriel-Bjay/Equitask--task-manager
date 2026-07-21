@@ -100,7 +100,6 @@ const RegisterPage: React.FC = () => {
           Create your account and start collaborating with your team on a platform designed for fairness and accountability.
         </Typography>
       </Box>
-
       {/* Right form panel */}
       <Box sx={{
         flex: 1,
@@ -131,23 +130,23 @@ const RegisterPage: React.FC = () => {
 
           <Box component="form" onSubmit={handleSubmit}>
             <Grid container spacing={2}>
-              <Grid item xs={6}>
+              <Grid size={6}>
                 <TextField fullWidth label="First name" name="first_name"
                   value={formData.first_name} onChange={handleChange} required />
               </Grid>
-              <Grid item xs={6}>
+              <Grid size={6}>
                 <TextField fullWidth label="Last name" name="last_name"
                   value={formData.last_name} onChange={handleChange} required />
               </Grid>
-              <Grid item xs={12}>
+              <Grid size={12}>
                 <TextField fullWidth label="Username" name="username"
                   value={formData.username} onChange={handleChange} required />
               </Grid>
-              <Grid item xs={12}>
+              <Grid size={12}>
                 <TextField fullWidth label="Email address" name="email" type="email"
                   value={formData.email} onChange={handleChange} required />
               </Grid>
-              <Grid item xs={12}>
+              <Grid size={12}>
                 <TextField
                   fullWidth label="Password" name="password"
                   type={showPassword ? "text" : "password"}
@@ -163,14 +162,14 @@ const RegisterPage: React.FC = () => {
                   }}
                 />
               </Grid>
-              <Grid item xs={12}>
+              <Grid size={12}>
                 <TextField
                   fullWidth label="Confirm password" name="password2"
                   type={showPassword ? "text" : "password"}
                   value={formData.password2} onChange={handleChange} required
                 />
               </Grid>
-              <Grid item xs={12}>
+              <Grid size={12}>
                 <Button
                   type="submit" fullWidth variant="contained" disabled={loading}
                   sx={{

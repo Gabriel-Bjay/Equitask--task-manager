@@ -140,7 +140,11 @@ const SettingsPage: React.FC = () => {
 
         <Grid container spacing={3}>
           {/* Left column */}
-          <Grid item xs={12} md={7}>
+          <Grid
+            size={{
+              xs: 12,
+              md: 7
+            }}>
             <Stack spacing={3}>
 
               {/* Change Password */}
@@ -304,7 +308,11 @@ const SettingsPage: React.FC = () => {
           </Grid>
 
           {/* Right column */}
-          <Grid item xs={12} md={5}>
+          <Grid
+            size={{
+              xs: 12,
+              md: 5
+            }}>
             <Stack spacing={3}>
 
              {/* Theme Preferences */}

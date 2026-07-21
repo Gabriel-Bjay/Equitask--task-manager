@@ -160,14 +160,25 @@ const AnalyticsPage: React.FC = () => {
         {loading ? (
           <Grid container spacing={3} sx={{ mb: 4 }}>
             {[1, 2, 3, 4].map((i) => (
-              <Grid item xs={12} sm={6} md={3} key={i}>
+              <Grid
+                key={i}
+                size={{
+                  xs: 12,
+                  sm: 6,
+                  md: 3
+                }}>
                 <Skeleton variant="rounded" height={100} sx={{ borderRadius: 3 }} />
               </Grid>
             ))}
           </Grid>
         ) : (
           <Grid container spacing={3} sx={{ mb: 4 }}>
-            <Grid item xs={12} sm={6} md={3}>
+            <Grid
+              size={{
+                xs: 12,
+                sm: 6,
+                md: 3
+              }}>
               <SummaryCard
                 title="Total Tasks"
                 value={data?.task_stats.total || 0}
@@ -175,7 +186,12 @@ const AnalyticsPage: React.FC = () => {
                 color="#1A3C5E"
               />
             </Grid>
-            <Grid item xs={12} sm={6} md={3}>
+            <Grid
+              size={{
+                xs: 12,
+                sm: 6,
+                md: 3
+              }}>
               <SummaryCard
                 title="Completion Rate"
                 value={`${completionRate}%`}
@@ -184,7 +200,12 @@ const AnalyticsPage: React.FC = () => {
                 subtitle={data ? `${data.task_stats.completed} completed` : '0 completed'}
               />
             </Grid>
-            <Grid item xs={12} sm={6} md={3}>
+            <Grid
+              size={{
+                xs: 12,
+                sm: 6,
+                md: 3
+              }}>
               <SummaryCard
                 title="Team Members"
                 value={data?.team_workload.length || 0}
@@ -193,7 +214,12 @@ const AnalyticsPage: React.FC = () => {
                 subtitle="Active members"
               />
             </Grid>
-            <Grid item xs={12} sm={6} md={3}>
+            <Grid
+              size={{
+                xs: 12,
+                sm: 6,
+                md: 3
+              }}>
               <SummaryCard
                 title="Overdue Tasks"
                 value={data?.task_stats.overdue || 0}
@@ -208,7 +234,11 @@ const AnalyticsPage: React.FC = () => {
         {/* Charts row */}
         <Grid container spacing={3} sx={{ mb: 3 }}>
           {/* Task status pie */}
-          <Grid item xs={12} md={4}>
+          <Grid
+            size={{
+              xs: 12,
+              md: 4
+            }}>
             <Paper sx={{ p: 3, height: '100%' }}>
               <Typography sx={{ fontSize: 15, fontWeight: 700, color: '#1A3C5E', mb: 0.5 }}>
                 Task Status
@@ -272,7 +302,11 @@ const AnalyticsPage: React.FC = () => {
           </Grid>
 
           {/* Tasks by category */}
-          <Grid item xs={12} md={8}>
+          <Grid
+            size={{
+              xs: 12,
+              md: 8
+            }}>
             <Paper sx={{ p: 3, height: '100%' }}>
               <Typography sx={{ fontSize: 15, fontWeight: 700, color: '#1A3C5E', mb: 0.5 }}>
                 Tasks by Category
@@ -454,10 +488,18 @@ const AnalyticsPage: React.FC = () => {
 
         {/* Bottom row — RAPID + Workload */}
         <Grid container spacing={3}>
-          <Grid item xs={12} md={5}>
+          <Grid
+            size={{
+              xs: 12,
+              md: 5
+            }}>
             <RAPIDCompliance />
           </Grid>
-          <Grid item xs={12} md={7}>
+          <Grid
+            size={{
+              xs: 12,
+              md: 7
+            }}>
             <WorkloadChart />
           </Grid>
         </Grid>
