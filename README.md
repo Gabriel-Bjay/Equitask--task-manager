@@ -2,7 +2,7 @@
 
 A full-stack web application that helps managers distribute tasks fairly and equitably across their teams. Built as a final-year Computer Science capstone project at Riara University.
 
-![EquiTask Dashboard](./My%20tasks.png)
+![EquiTask Dashboard](./assets/My%20tasks.png)
 
 ## What It Does
 
@@ -111,7 +111,7 @@ npm run dev
 
 |Login                                   |Task List                  |Dashboard                     |
 |----------------------------------------|---------------------------|------------------------------|
-|![Login](./Fig%204.1%20login%20page.png)|![Tasks](./Task%20List.png)|![Dashboard](./My%20tasks.png)|
+|![Login](./assets/Fig%204.1%20login%20page.png)|![Tasks](./assets/Task%20List.png)|![Dashboard](./assets/My%20tasks.png)|
 
 ## What I Learned
 
