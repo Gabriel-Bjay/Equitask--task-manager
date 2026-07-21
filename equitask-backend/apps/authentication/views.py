@@ -2,6 +2,7 @@ from rest_framework import status, generics, permissions
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.exceptions import TokenError
 from django.contrib.auth import authenticate, get_user_model
 from .serializers import UserSerializer, RegisterSerializer, LoginSerializer
 
@@ -27,8 +28,6 @@ class RegisterView(generics.CreateAPIView):
                 'access': str(refresh.access_token),
             }
         }, status=status.HTTP_201_CREATED)
-        # Generate tokens
-        # refresh = RefreshToken.for_user(user)
 
 
 class LoginView(APIView):
@@ -71,25 +70,35 @@ class LoginView(APIView):
 
 
 class LogoutView(APIView):
-    """User logout endpoint"""
+    """User logout endpoint.
+
+    Blacklists the presented refresh token so it can no longer be used to mint
+    new access tokens. Requires the token_blacklist app to be installed and
+    migrated. Note: the already-issued access token remains valid until it
+    expires; that is inherent to stateless JWT.
+    """
 
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
+        refresh_token = request.data.get('refresh')
+        if not refresh_token:
+            return Response(
+                {'error': 'Refresh token is required to log out.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         try:
-            refresh_token = request.data.get('refresh')
-            if refresh_token:
-                token = RefreshToken(refresh_token)
-                token.blacklist()
+            token = RefreshToken(refresh_token)
+            token.blacklist()
+        except TokenError:
             return Response(
-                {'message': 'Logout successful'},
-                status=status.HTTP_200_OK
+                {'error': 'Token is invalid or already blacklisted.'},
+                status=status.HTTP_400_BAD_REQUEST,
             )
-        except Exception:
-            return Response(
-                {'error': 'Invalid token'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+        return Response(
+            {'message': 'Logout successful'},
+            status=status.HTTP_200_OK,
+        )
 
 
 class CurrentUserView(generics.RetrieveUpdateAPIView):
