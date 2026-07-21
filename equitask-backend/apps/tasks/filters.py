@@ -1,26 +1,30 @@
 import django_filters
+
 from .models import Task, TaskAssignment
 
+
 class TaskFilter(django_filters.FilterSet):
-    # Assuming category is a FK with 'name' field
-    category = django_filters.CharFilter(field_name='category__name', lookup_expr='icontains')
-    # created_by is a FK to User
-    created_by = django_filters.NumberFilter(field_name='created_by__id')
+    # `category` is a plain CharField (with choices) on Task, NOT a foreign key.
+    # The previous `category__name` lookup raised a FieldError because it tried
+    # to traverse a relation that does not exist.
+    category = django_filters.CharFilter(field_name='category', lookup_expr='iexact')
+
+    # `deadline` is a DateTimeField; an exact match is almost never useful, so
+    # expose range bounds instead (?deadline_after=...&deadline_before=...).
+    deadline_after = django_filters.DateTimeFilter(field_name='deadline', lookup_expr='gte')
+    deadline_before = django_filters.DateTimeFilter(field_name='deadline', lookup_expr='lte')
 
     class Meta:
         model = Task
-        # Only include real fields on Task
-        fields = ['status', 'priority', 'deadline', 'category', 'created_by']
+        # status/priority are choice CharFields -> auto exact filters.
+        # created_by (FK) -> auto ModelChoiceFilter, which handles the pk type
+        # correctly regardless of whether User uses an integer or UUID pk.
+        fields = ['status', 'priority', 'created_by']
 
 
 class TaskAssignmentFilter(django_filters.FilterSet):
-    # Filter by task ID
-    task = django_filters.NumberFilter(field_name='task__id')
-    # Filter by user ID
-    assigned_to = django_filters.NumberFilter(field_name='assigned_to__id')
-    # is_active is a real field
-    is_active = django_filters.BooleanFilter()
-
     class Meta:
         model = TaskAssignment
+        # task / assigned_to (FKs) -> auto ModelChoiceFilters.
+        # is_active (BooleanField) -> auto BooleanFilter (?is_active=true/false).
         fields = ['task', 'assigned_to', 'is_active']
