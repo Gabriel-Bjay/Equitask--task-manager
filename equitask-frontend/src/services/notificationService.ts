@@ -1,11 +1,13 @@
 import api from './api';
 import { Notification } from '../types/notification.types';
+import { unwrapList } from '../utils/pagination';
 
 export const notificationService = {
   // Get all notifications
   getNotifications: async (): Promise<Notification[]> => {
     const response = await api.get('/notifications/');
-    return response.data;
+    // Handle both bare-array and paginated ({ count, results }) responses
+    return unwrapList<Notification>(response.data);
   },
 
   // Get unread count

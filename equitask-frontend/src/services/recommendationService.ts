@@ -1,11 +1,13 @@
 import api from './api';
 import { Recommendation } from '../types/recommendation.types';
+import { unwrapList } from '../utils/pagination';
 
 export const recommendationService = {
   // Get recommendations for a task
   getRecommendations: async (taskId: number): Promise<Recommendation[]> => {
     const response = await api.get(`/recommendations/task/${taskId}/`);
-    return response.data;
+    // Handle both bare-array and paginated ({ count, results }) responses
+    return unwrapList<Recommendation>(response.data);
   },
 
   // Accept recommendation

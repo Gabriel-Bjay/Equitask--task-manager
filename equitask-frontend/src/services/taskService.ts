@@ -1,19 +1,19 @@
 import api from './api';
 import { Task, CreateTaskData } from '../types/task.types';
+import { unwrapList } from '../utils/pagination';
 
 export const taskService = {
   // Get all tasks
   getAllTasks: async (params?: any): Promise<Task[]> => {
     const response = await api.get('/tasks/', { params });
-    // Handle paginated response
-    return response.data.results || response.data;
+    // Handle both bare-array and paginated ({ count, results }) responses
+    return unwrapList<Task>(response.data);
   },
 
   // Get my tasks
   getMyTasks: async (): Promise<Task[]> => {
     const response = await api.get('/tasks/my_tasks/');
-    // Handle both array and paginated responses
-    return Array.isArray(response.data) ? response.data : (response.data.results || []);
+    return unwrapList<Task>(response.data);
   },
 
   // Get single task
@@ -34,7 +34,7 @@ export const taskService = {
     return response.data;
   },
 
-  //Get recommendations
+  // Get recommendations (ranked candidates for a task)
   getRecommendations: async (taskId: number) => {
     const response = await api.get(`/tasks/${taskId}/recommend/`);
     return response.data;
@@ -46,7 +46,11 @@ export const taskService = {
   },
 
   // Assign task
-  assignTask: async (taskId: number, userId: number, justification?: string): Promise<any> => {
+  assignTask: async (
+    taskId: number,
+    userId: number,
+    justification?: string
+  ): Promise<any> => {
     const response = await api.post(`/tasks/${taskId}/assign/`, {
       user_id: userId,
       justification,
