@@ -1,0 +1,22 @@
+# Python / Django
+__pycache__/
+*.py[cod]
+venv/
+venv311/
+.venv/
+
+# Local database and secrets
+*.sqlite3
+db.sqlite3
+.env
+.env.*
+
+# Node / React
+node_modules/
+/build/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+*.log
