@@ -45,9 +45,12 @@ Most task management tools let managers assign tasks manually with no guidance o
 ```
 equitask/
 ├── equitask-backend/     # Django REST Framework API
-│   ├── tasks/            # Task management app
-│   ├── users/            # User management and auth
-│   └── analytics/        # RAPID scoring logic
+│   └── apps/
+│       ├── analytics/        # RAPID scoring logic
+│       ├── authentication/   # User management and auth
+│       ├── notifications/    # Notifications
+│       ├── recommendations/  # Recommendation engine
+│       └── tasks/            # Task management app
 └── equitask-frontend/    # React + TypeScript SPA
     ├── src/
     │   ├── components/   # Reusable UI components
@@ -100,7 +103,7 @@ npm install
 Create a `.env` file in the frontend root:
 
 ```env
-VITE_API_URL=http://localhost:8000/api
+REACT_APP_API_URL=http://localhost:8000/api
 ```
 
 ```bash
