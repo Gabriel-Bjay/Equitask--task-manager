@@ -1,6 +1,26 @@
 import React, { createContext, useContext, useState } from 'react';
 import { createTheme, ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
+import GlobalStyles from '@mui/material/GlobalStyles';
+
+const DEFAULT_ACCENT = '#028090';
+
+// The accent comes from localStorage, so only a #rrggbb value is trusted.
+const readStoredAccent = () => {
+  const stored = localStorage.getItem('accentColor');
+  return stored && /^#[0-9a-f]{6}$/i.test(stored) ? stored : DEFAULT_ACCENT;
+};
+
+const hexToRgb = (hex: string) => {
+  const value = parseInt(hex.slice(1), 16);
+  return [(value >> 16) & 255, (value >> 8) & 255, value & 255];
+};
+
+// Blend toward black (0) or white (255); `amount` is the target's share.
+const mix = (rgb: number[], target: number, amount: number) =>
+  '#' + rgb
+    .map((c) => Math.round(c + (target - c) * amount).toString(16).padStart(2, '0'))
+    .join('');
 
 interface ThemeContextType {
   accentColor: string;
@@ -12,7 +32,7 @@ interface ThemeContextType {
 }
 
 const ThemeContext = createContext<ThemeContextType>({
-  accentColor: '#028090',
+  accentColor: DEFAULT_ACCENT,
   setAccentColor: () => {},
   compactMode: false,
   setCompactMode: () => {},
@@ -23,9 +43,7 @@ const ThemeContext = createContext<ThemeContextType>({
 export const useThemeContext = () => useContext(ThemeContext);
 
 export const AppThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [accentColor, setAccentColorState] = useState(
-    localStorage.getItem('accentColor') || '#028090'
-  );
+  const [accentColor, setAccentColorState] = useState(readStoredAccent);
   const [compactMode, setCompactModeState] = useState(
     localStorage.getItem('compactMode') === 'true'
   );
@@ -48,9 +66,12 @@ export const AppThemeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     localStorage.setItem('animationsEnabled', String(val));
   };
 
+  const accentRgb = hexToRgb(accentColor);
+  const accentDark = mix(accentRgb, 0, 0.26);
+
   const theme = createTheme({
     palette: {
-      primary: { main: accentColor },
+      primary: { main: accentColor, dark: accentDark },
       secondary: { main: '#1A3C5E' },
       background: { default: '#F5F7FA' },
     },
@@ -72,10 +93,7 @@ export const AppThemeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           },
           containedPrimary: {
             backgroundColor: accentColor,
-            '&:hover': {
-              backgroundColor: accentColor,
-              filter: 'brightness(0.88)',
-            },
+            '&:hover': { backgroundColor: accentDark },
           },
         },
       },
@@ -124,6 +142,16 @@ export const AppThemeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }}>
       <ThemeProvider theme={theme}>
         <CssBaseline />
+        {/* Components style themselves with these, so the accent reaches every page. */}
+        <GlobalStyles styles={{
+          ':root': {
+            '--accent': accentColor,
+            '--accent-rgb': accentRgb.join(' '),
+            '--accent-dark': accentDark,
+            '--accent-soft': mix(accentRgb, 255, 0.91),
+            '--accent-softer': mix(accentRgb, 255, 0.95),
+          },
+        }} />
         {children}
       </ThemeProvider>
     </ThemeContext.Provider>

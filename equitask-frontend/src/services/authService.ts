@@ -26,11 +26,20 @@ export const authService = {
     return response.data;
   },
 
-  // Logout
+  // Logout: revoke the refresh token server-side, and always clear the local
+  // session so a failed request can never leave the user stuck signed in.
   logout: async (): Promise<void> => {
-    await api.post('/auth/logout/');
-    localStorage.removeItem('tokens');
-    localStorage.removeItem('user');
+    try {
+      const { refresh } = JSON.parse(localStorage.getItem('tokens') || '{}');
+      if (refresh) {
+        await api.post('/auth/logout/', { refresh });
+      }
+    } catch {
+      // An expired or already-revoked token has nothing left to revoke.
+    } finally {
+      localStorage.removeItem('tokens');
+      localStorage.removeItem('user');
+    }
   },
 
   // Refresh token

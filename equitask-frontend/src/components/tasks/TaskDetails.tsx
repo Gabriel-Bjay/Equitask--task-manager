@@ -13,7 +13,6 @@ import {
 } from '@mui/material';
 import {
   Schedule as ScheduleIcon,
-  Person as PersonIcon,
   Category as CategoryIcon,
 } from '@mui/icons-material';
 import { Task } from '../../types/task.types';
@@ -29,19 +28,27 @@ interface TaskDetailsProps {
 const TaskDetails: React.FC<TaskDetailsProps> = ({ task, open, onClose }) => {
   if (!task) return null;
 
-  const statusColor = TASK_STATUSES.find((s) => s.value === task.status)?.color;
+  const status = TASK_STATUSES.find((s) => s.value === task.status);
   const priorityColor = TASK_PRIORITIES.find((p) => p.value === task.priority)?.color;
+  const estimatedHours = task.estimated_hours != null ? Number(task.estimated_hours) : 0;
+
+  const timeline = [
+    { label: 'Assigned to', value: task.assignee?.name || 'Unassigned' },
+    { label: 'Created by', value: task.created_by_name || '—' },
+    { label: 'Started', value: task.started_at ? format(new Date(task.started_at), 'PPP p') : 'Not started' },
+    { label: 'Completed', value: task.completed_at ? format(new Date(task.completed_at), 'PPP p') : '—' },
+  ];
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle>
-        <Typography variant="h5">{task.title}</Typography>
+      <DialogTitle sx={{ fontSize: 22, fontWeight: 700, color: '#1A3C5E' }}>
+        {task.title}
       </DialogTitle>
       <DialogContent>
         <Box sx={{ mb: 2, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
           <Chip
-            label={task.status.replace('_', ' ').toUpperCase()}
-            sx={{ backgroundColor: statusColor, color: 'white' }}
+            label={(status?.label || task.status).toUpperCase()}
+            sx={{ backgroundColor: status?.color, color: 'white' }}
           />
           <Chip
             label={task.priority.toUpperCase()}
@@ -56,8 +63,21 @@ const TaskDetails: React.FC<TaskDetailsProps> = ({ task, open, onClose }) => {
           Description
         </Typography>
         <Typography variant="body1" paragraph sx={{ whiteSpace: 'pre-wrap' }}>
-          {task.description}
+          {task.description || 'No description provided.'}
         </Typography>
+
+        <Divider sx={{ my: 2 }} />
+
+        <Grid container spacing={2}>
+          {timeline.map((item) => (
+            <Grid key={item.label} size={{ xs: 12, sm: 6 }}>
+              <Typography variant="caption" color="textSecondary">
+                {item.label}
+              </Typography>
+              <Typography variant="body2">{item.value}</Typography>
+            </Grid>
+          ))}
+        </Grid>
 
         <Divider sx={{ my: 2 }} />
 
@@ -91,7 +111,9 @@ const TaskDetails: React.FC<TaskDetailsProps> = ({ task, open, onClose }) => {
                 <Typography variant="caption" color="textSecondary">
                   Estimated Hours
                 </Typography>
-                <Typography variant="body2">{task.estimated_hours || 'Not specified'}</Typography>
+                <Typography variant="body2">
+                  {estimatedHours > 0 ? `${estimatedHours}h` : 'Not specified'}
+                </Typography>
               </Box>
             </Box>
           </Grid>

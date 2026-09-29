@@ -10,9 +10,11 @@ export const recommendationService = {
     return unwrapList<Recommendation>(response.data);
   },
 
-  // Accept recommendation
-  acceptRecommendation: async (recommendationId: number): Promise<any> => {
-    const response = await api.post(`/recommendations/${recommendationId}/accept/`);
+  // Accept recommendation; the justification is stored with the assignment
+  acceptRecommendation: async (recommendationId: number, justification = ''): Promise<any> => {
+    const response = await api.post(`/recommendations/${recommendationId}/accept/`, {
+      justification,
+    });
     return response.data;
   },
 

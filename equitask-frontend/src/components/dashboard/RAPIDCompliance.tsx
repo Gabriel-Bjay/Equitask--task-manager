@@ -62,14 +62,14 @@ const RAPIDCompliance: React.FC = () => {
         }}>
           <Box sx={{
             position: 'absolute', inset: 0, borderRadius: '50%',
-            background: `conic-gradient(#028090 ${overall * 3.6}deg, #EEF2F6 0deg)`,
+            background: `conic-gradient(var(--accent) ${overall * 3.6}deg, #EEF2F6 0deg)`,
           }} />
           <Box sx={{
             position: 'absolute', inset: 10, borderRadius: '50%',
             bgcolor: 'white', display: 'flex',
             flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
           }}>
-            <Typography sx={{ fontSize: 22, fontWeight: 800, color: '#028090', lineHeight: 1 }}>
+            <Typography sx={{ fontSize: 22, fontWeight: 800, color: 'var(--accent)', lineHeight: 1 }}>
               {overall}%
             </Typography>
             <Typography sx={{ fontSize: 9, color: '#94A3B8', letterSpacing: '0.3px' }}>
