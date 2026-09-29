@@ -186,13 +186,15 @@ class Command(BaseCommand):
             completed_at=completed_at,
         )
 
+        # Completed tasks keep their final assignment active, exactly as tasks
+        # completed through the app do; team analytics count completions by it.
         TaskAssignment.objects.create(
             task=task,
             assigned_to=assignee,
             assigned_by=manager,
             assignment_type='ml_recommended',
-            justification='',
-            is_active=False,
+            justification=f'{SIM_TITLE_PREFIX} Accepted engine recommendation.',
+            is_active=True,
         )
 
         final_score = (

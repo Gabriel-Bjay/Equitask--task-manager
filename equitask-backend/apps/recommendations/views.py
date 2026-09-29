@@ -9,6 +9,7 @@ from django.shortcuts import get_object_or_404
 from .models import TaskRecommendation
 from .serializers import TaskRecommendationSerializer
 from apps.tasks.models import Task, TaskAssignment
+from apps.tasks.permissions import IsManagerOrReadOnly
 from apps.notifications.utils import notify_task_assigned
 
 User = get_user_model()
@@ -20,7 +21,9 @@ class TaskRecommendationViewSet(viewsets.ModelViewSet):
     """
     queryset = TaskRecommendation.objects.all()
     serializer_class = TaskRecommendationSerializer
-    permission_classes = [IsAuthenticated]
+    # Writes assign tasks (accept/override) and create the snapshots that
+    # retrain_weights learns from, so they are restricted to managers.
+    permission_classes = [IsAuthenticated, IsManagerOrReadOnly]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['task', 'recommended_user', 'rank_position']
     search_fields = ['task__title', 'recommended_user__first_name', 'recommended_user__last_name']

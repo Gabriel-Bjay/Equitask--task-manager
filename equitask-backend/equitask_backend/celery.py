@@ -32,4 +32,8 @@ app.conf.beat_schedule = {
         'task': 'apps.analytics.tasks.update_workload_metrics',
         'schedule': crontab(hour='1', minute='0'),  # Daily at 1 AM
     },
+    'retrain-recommendation-weights': {
+        'task': 'apps.recommendations.tasks.retrain_recommendation_weights',
+        'schedule': crontab(hour='2', minute='0', day_of_week='sunday'),
+    },
 }

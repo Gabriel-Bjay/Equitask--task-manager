@@ -11,4 +11,4 @@ class NotificationSerializer(serializers.ModelSerializer):
             'id', 'user', 'user_name', 'notification_type', 'title', 'message',
             'related_task', 'task_title', 'priority', 'is_read', 'read_at', 'created_at'
         ]
-        read_only_fields = ['created_at', 'read_at', 'user_name', 'task_title']
+        read_only_fields = ['user', 'created_at', 'read_at', 'user_name', 'task_title']
