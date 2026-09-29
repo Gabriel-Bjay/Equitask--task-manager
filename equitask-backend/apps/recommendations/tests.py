@@ -4,21 +4,27 @@ Tests for the allocation engine and the recommendation API endpoints.
 - EngineComponentTests exercise the scoring logic directly (no HTTP).
 - RecommendationEndpointTests drive the recommend / accept / override /
   for_task endpoints through the API.
+- RetrainWeightsTests cover the logistic-regression weight learning and the
+  scheduled Celery task that runs it.
 """
 
+import importlib
 from datetime import timedelta
 from decimal import Decimal
+from io import StringIO
 
 from django.contrib.auth import get_user_model
-from django.test import TestCase
+from django.core.management import call_command
+from django.test import SimpleTestCase, TestCase
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
 from apps.authentication.models import UserSkill
-from apps.tasks.models import Task, TaskAssignment
-from apps.recommendations.models import TaskRecommendation
+from apps.tasks.models import Task, TaskAssignment, TaskPerformanceLog
+from apps.recommendations.models import RecommendationWeights, TaskRecommendation
 from apps.recommendations.engine import AllocationEngine
+from apps.recommendations.tasks import retrain_recommendation_weights
 
 User = get_user_model()
 
@@ -197,3 +203,144 @@ class RecommendationEndpointTests(APITestCase):
         response = self.client.get(f'/api/recommendations/task/{self.task.id}/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertGreaterEqual(len(response.json()), 1)
+
+    def test_recommend_returns_snapshot_ids_that_can_be_accepted(self):
+        data = self.client.get(f'/api/tasks/{self.task.id}/recommend/').json()
+        top = data['recommendations'][0]
+        self.assertIsNotNone(top['recommendation_id'])
+
+        response = self.client.post(
+            f"/api/recommendations/{top['recommendation_id']}/accept/",
+            {'justification': top['explanation']},
+            format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        assignment = TaskAssignment.objects.get(task=self.task, is_active=True)
+        self.assertEqual(assignment.assigned_to_id, top['user']['id'])
+        self.assertEqual(assignment.justification, top['explanation'])
+
+    def test_team_member_cannot_run_the_recommender(self):
+        self.client.force_authenticate(user=self.bob)
+        response = self.client.get(f'/api/tasks/{self.task.id}/recommend/')
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertFalse(TaskRecommendation.objects.exists())
+
+    def test_team_member_can_read_recommendations(self):
+        self._make_recommendation(self.alice)
+        self.client.force_authenticate(user=self.bob)
+        response = self.client.get(f'/api/recommendations/task/{self.task.id}/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_team_member_cannot_accept_or_override(self):
+        rec = self._make_recommendation(self.alice)
+        self.client.force_authenticate(user=self.bob)
+        accept = self.client.post(f'/api/recommendations/{rec.id}/accept/')
+        override = self.client.post(
+            '/api/recommendations/override/',
+            {'task_id': self.task.id, 'user_id': self.bob.id, 'justification': 'I want it.'},
+            format='json',
+        )
+        self.assertEqual(accept.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(override.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertFalse(TaskAssignment.objects.filter(task=self.task).exists())
+
+    def test_team_member_cannot_write_training_snapshots(self):
+        self.client.force_authenticate(user=self.bob)
+        response = self.client.post(
+            '/api/recommendations/',
+            {
+                'task': self.task.id,
+                'recommended_user': self.bob.id,
+                'final_score': 1.0,
+                'confidence_score': 1.0,
+                'skill_match_score': 1.0,
+                'workload_score': 1.0,
+                'historical_performance_score': 1.0,
+                'fairness_score': 1.0,
+                'urgency_score': 1.0,
+                'rank_position': 1,
+                'explanation': 'fabricated',
+            },
+            format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertFalse(TaskRecommendation.objects.exists())
+
+
+class RetrainWeightsTests(TestCase):
+    def setUp(self):
+        self.manager = make_user('mgr3@test.local', ['Python'], role='manager')
+        self.member = make_user('member3@test.local', ['Python'])
+
+    def record_outcome(self, index, skill_score, success):
+        now = timezone.now()
+        task = Task.objects.create(
+            title=f'Historic task {index}', created_by=self.manager, status='completed'
+        )
+        TaskRecommendation.objects.create(
+            task=task,
+            recommended_user=self.member,
+            final_score=0.5,
+            confidence_score=0.5,
+            skill_match_score=skill_score,
+            workload_score=0.5,
+            historical_performance_score=0.5,
+            fairness_score=0.5,
+            urgency_score=0.5,
+            rank_position=1,
+            explanation='historic snapshot',
+        )
+        TaskPerformanceLog.objects.create(
+            task=task,
+            user=self.member,
+            started_at=now - timedelta(hours=8),
+            completed_at=now,
+            hours_taken=Decimal('8'),
+            quality_rating=5 if success else 2,
+            on_time=success,
+        )
+
+    def test_learns_weights_that_favour_the_predictive_component(self):
+        for index in range(40):
+            success = index % 2 == 0
+            self.record_outcome(index, 0.9 if success else 0.2, success)
+
+        call_command('retrain_weights', '--min-samples', '20', stdout=StringIO())
+
+        active = RecommendationWeights.get_active()
+        self.assertEqual((active.source, active.n_samples), ('learned', 40))
+        weights = active.as_dict()
+        self.assertAlmostEqual(sum(weights.values()), 1.0, places=3)
+        self.assertEqual(max(weights, key=weights.get), 'skill')
+
+    def test_cold_start_guard_keeps_current_weights(self):
+        for index in range(5):
+            self.record_outcome(index, 0.9, index % 2 == 0)
+        call_command('retrain_weights', stdout=StringIO())
+        self.assertFalse(RecommendationWeights.objects.filter(source='learned').exists())
+
+    def test_scheduled_task_runs_the_retrain_command(self):
+        self.assertIn('Not enough data', retrain_recommendation_weights())
+
+    def test_seeded_history_trains_the_engine_and_keeps_owners(self):
+        call_command('seed_simulation', '--users', '4', '--tasks', '80', stdout=StringIO())
+        seeded = Task.objects.filter(title__startswith='[SIM]')
+        self.assertEqual(seeded.count(), 80)
+        self.assertEqual(
+            TaskAssignment.objects.filter(task__in=seeded, is_active=True).count(), 80
+        )
+
+        call_command('retrain_weights', '--min-samples', '40', stdout=StringIO())
+        self.assertEqual(RecommendationWeights.get_active().source, 'learned')
+
+
+class BeatScheduleTests(SimpleTestCase):
+    def test_every_scheduled_entry_points_at_a_real_celery_task(self):
+        from equitask_backend.celery import app
+
+        schedule = app.conf.beat_schedule
+        self.assertIn('retrain-recommendation-weights', schedule)
+        for name, entry in schedule.items():
+            module_path, attr = entry['task'].rsplit('.', 1)
+            task = getattr(importlib.import_module(module_path), attr, None)
+            self.assertTrue(hasattr(task, 'delay'), f'{name}: {entry["task"]} is not a Celery task')
