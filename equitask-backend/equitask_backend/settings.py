@@ -13,6 +13,7 @@ import os
 from pathlib import Path
 from datetime import timedelta
 from decouple import config
+from django.core.exceptions import ImproperlyConfigured
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -31,8 +32,7 @@ INSTALLED_APPS = [
 
     # Third party
     'rest_framework',
-    # 'rest_framework_simplejwt',
-    # Temporarily disabled for Python 3.13 compatibility
+    'rest_framework_simplejwt',
     'corsheaders',
     'django_filters',
     'drf_spectacular',
@@ -77,13 +77,33 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'equitask_backend.wsgi.application'
 
-# Database
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+# Database: SQLite for zero-config local dev, MySQL when DB_ENGINE=mysql.
+# Most hosts wipe the filesystem on redeploy, so deployments must use MySQL.
+DB_ENGINE = config('DB_ENGINE', default='sqlite')
+
+if DB_ENGINE == 'mysql':
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.mysql',
+            'NAME': config('DB_NAME'),
+            'USER': config('DB_USER'),
+            'PASSWORD': config('DB_PASSWORD'),
+            'HOST': config('DB_HOST', default='localhost'),
+            'PORT': config('DB_PORT', default='3306'),
+            'OPTIONS': {'charset': 'utf8mb4'},
+        }
     }
-}
+elif DB_ENGINE == 'sqlite':
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
+else:
+    raise ImproperlyConfigured(
+        f"Unsupported DB_ENGINE {DB_ENGINE!r}; use 'sqlite' or 'mysql'."
+    )
 
 # Custom User Model
 AUTH_USER_MODEL = 'authentication.User'

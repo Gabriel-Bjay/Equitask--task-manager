@@ -8,20 +8,31 @@ class TaskSerializer(serializers.ModelSerializer):
     """Serializer for Task model"""
     
     created_by_name = serializers.SerializerMethodField()
-    
+    assignee = serializers.SerializerMethodField()
+
     class Meta:
         model = Task
         fields = [
             'id', 'title', 'description', 'created_by', 'created_by_name',
-            'category', 'priority', 'status', 'required_skills',
+            'assignee', 'category', 'priority', 'status', 'required_skills',
             'estimated_hours', 'actual_hours', 'complexity_score',
             'deadline', 'started_at', 'completed_at',
             'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'created_by', 'created_at', 'updated_at']
-    
+
     def get_created_by_name(self, obj):
         return obj.created_by.get_full_name() if obj.created_by else None
+
+    def get_assignee(self, obj):
+        # TaskViewSet prefetches this; other callers fall back to a query.
+        active = getattr(obj, 'active_assignments', None)
+        if active is None:
+            active = list(obj.assignments.filter(is_active=True).select_related('assigned_to')[:1])
+        if not active:
+            return None
+        user = active[0].assigned_to
+        return {'id': user.id, 'name': user.get_full_name() or user.email}
     
     def create(self, validated_data):
         validated_data['created_by'] = self.context['request'].user

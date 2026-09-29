@@ -1,14 +1,18 @@
 from rest_framework import viewsets, status, filters
 from rest_framework.decorators import action
+from rest_framework.generics import get_object_or_404
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
 from django.contrib.auth import get_user_model
+from django.db.models import Prefetch
 from django.utils import timezone
 
 from .models import Task, TaskAssignment, TaskPerformanceLog
 from .serializers import TaskSerializer, TaskAssignmentSerializer
-from .permissions import IsManagerOrReadOnly, IsTaskOwnerOrManager
+from .permissions import (
+    IsAssigneeUpdatingStatus, IsManager, IsManagerOrReadOnly, IsTaskOwnerOrManager,
+)
 from .filters import TaskFilter, TaskAssignmentFilter
 from apps.notifications.utils import notify_task_assigned, notify_status_changed, notify_task_completed
 from apps.recommendations.engine import AllocationEngine
@@ -28,9 +32,23 @@ class TaskViewSet(viewsets.ModelViewSet):
     ordering = ['-created_at']
 
     def get_permissions(self):
-        if self.action in ['update', 'partial_update', 'destroy']:
+        if self.action == 'partial_update':
+            return [IsAuthenticated(), (IsTaskOwnerOrManager | IsAssigneeUpdatingStatus)()]
+        if self.action == 'recommend':
+            # Exposes colleagues' performance scores and writes training snapshots.
+            return [IsAuthenticated(), IsManager()]
+        if self.action in ['update', 'destroy']:
             return [IsAuthenticated(), IsTaskOwnerOrManager()]
         return super().get_permissions()
+
+    def get_queryset(self):
+        return Task.objects.select_related('created_by').prefetch_related(
+            Prefetch(
+                'assignments',
+                queryset=TaskAssignment.objects.filter(is_active=True).select_related('assigned_to'),
+                to_attr='active_assignments',
+            )
+        )
 
     def partial_update(self, request, *args, **kwargs):
         """Override to fire notifications on status change"""
@@ -41,13 +59,27 @@ class TaskViewSet(viewsets.ModelViewSet):
         new_status = request.data.get('status')
         if new_status and new_status != old_status:
             task.refresh_from_db()
+            self._stamp_status_times(task, new_status)
             if new_status == 'completed':
                 notify_task_completed(task, request.user)
                 self._log_performance(task, request)
             else:
                 notify_status_changed(task, request.user, old_status, new_status)
+            response.data = self.get_serializer(self.get_queryset().get(pk=task.pk)).data
 
         return response
+
+    def _stamp_status_times(self, task, new_status):
+        now = timezone.now()
+        changed = []
+        if new_status == 'in_progress' and task.started_at is None:
+            task.started_at = now
+            changed.append('started_at')
+        if new_status == 'completed' and task.completed_at is None:
+            task.completed_at = now
+            changed.append('completed_at')
+        if changed:
+            task.save(update_fields=changed)
 
     @action(detail=False, methods=['get'])
     def my_tasks(self, request):
@@ -56,7 +88,7 @@ class TaskViewSet(viewsets.ModelViewSet):
             is_active=True
         )
         task_ids = assignments.values_list('task_id', flat=True)
-        tasks = Task.objects.filter(id__in=task_ids)
+        tasks = self.get_queryset().filter(id__in=task_ids).order_by('-created_at')
         serializer = self.get_serializer(tasks, many=True)
         return Response(serializer.data)
 
@@ -72,6 +104,10 @@ class TaskViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
+        # Resolve the assignee before touching existing assignments, so an
+        # unknown user_id cannot leave the task with no active assignee.
+        assigned_user = get_object_or_404(User, pk=user_id, is_active=True)
+
         # Deactivate existing assignments
         TaskAssignment.objects.filter(
             task=task, is_active=True
@@ -80,7 +116,7 @@ class TaskViewSet(viewsets.ModelViewSet):
         # Create new assignment
         assignment = TaskAssignment.objects.create(
             task=task,
-            assigned_to_id=user_id,
+            assigned_to=assigned_user,
             assigned_by=request.user,
             assignment_type='direct_assignment',
             justification=justification,
@@ -90,12 +126,7 @@ class TaskViewSet(viewsets.ModelViewSet):
         task.status = 'assigned'
         task.save()
 
-        # Fire notification to the assigned user
-        try:
-            assigned_user = User.objects.get(id=user_id)
-            notify_task_assigned(task, assigned_user, request.user)
-        except User.DoesNotExist:
-            pass
+        notify_task_assigned(task, assigned_user, request.user)
 
         serializer = TaskAssignmentSerializer(assignment)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -134,8 +165,17 @@ class TaskViewSet(viewsets.ModelViewSet):
                 for row in ranked
             ])
 
+        # Snapshot ids let the client accept a recommendation (ml_recommended).
+        # Looked up rather than read from bulk_create, which does not set
+        # primary keys on MySQL.
+        snapshot_ids = dict(
+            TaskRecommendation.objects.filter(task=task)
+            .values_list('recommended_user_id', 'id')
+        )
+
         recommendations = [
             {
+                'recommendation_id': snapshot_ids.get(row['user'].id),
                 'user': {
                     'id': row['user'].id,
                     'name': row['user'].get_full_name() or row['user'].username,
@@ -216,6 +256,6 @@ class TaskViewSet(viewsets.ModelViewSet):
 class TaskAssignmentViewSet(viewsets.ModelViewSet):
     queryset = TaskAssignment.objects.all()
     serializer_class = TaskAssignmentSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsManagerOrReadOnly]
     filter_backends = [DjangoFilterBackend]
     filterset_class = TaskAssignmentFilter
