@@ -35,6 +35,8 @@ Most task management tools let managers assign tasks manually with no guidance o
 ## Key Features
 
 - **Task recommendation engine** — weighted scoring algorithm matches tasks to team members by skill set and current workload
+- **Explainable, accountable assignment** — every candidate shows five component scores and a plain-English reason; choosing someone other than the top recommendation requires a recorded justification
+- **Self-improving weights** — a weekly Celery job retrains the scoring weights with logistic regression on real outcomes (on time and quality), with a cold-start guard
 - **RAPID compliance dashboard** — live charts showing workload equity and accountability metrics over time
 - **Role-based access control** — separate views and permissions for managers and team members
 - **JWT authentication** — secure login with token refresh
@@ -63,9 +65,9 @@ equitask/
 
 ### Prerequisites
 
-- Python 3.10+
+- Python 3.10–3.12 (the pinned numpy and scikit-learn have no 3.13 wheels)
 - Node.js 18+
-- MySQL
+- MySQL (optional locally: SQLite is used when `DB_ENGINE` is unset)
 
 ### Backend Setup
 
@@ -80,6 +82,8 @@ Create a `.env` file in the backend root:
 
 ```env
 SECRET_KEY=your_django_secret_key
+DEBUG=True
+DB_ENGINE=mysql
 DB_NAME=equitask
 DB_USER=your_mysql_user
 DB_PASSWORD=your_mysql_password
@@ -87,11 +91,31 @@ DB_HOST=localhost
 DB_PORT=3306
 ```
 
+Leave out `DB_ENGINE` (and the `DB_*` lines) to use a local SQLite file instead. Deployments must use MySQL, since most hosts wipe the filesystem on every redeploy.
+
 ```bash
 python manage.py migrate
 python manage.py createsuperuser
 python manage.py runserver
 ```
+
+New accounts are team members. To manage tasks, set your user's role to Administrator or Manager in `/admin/`, or load demo data with `python manage.py seed_simulation`, which creates a demo manager, 25 team members, and 400 historical tasks for the engine to learn from.
+
+### Tests
+
+```bash
+python manage.py test
+```
+
+### Background jobs
+
+Deadline reminders, overdue checks, daily workload metrics, and the weekly weight retraining run on Celery Beat (Redis broker, `REDIS_URL`):
+
+```bash
+celery -A equitask_backend worker -B -l info
+```
+
+Each job can also be run by hand, for example `python manage.py retrain_weights`.
 
 ### Frontend Setup
 
@@ -107,7 +131,7 @@ REACT_APP_API_URL=http://localhost:8000/api
 ```
 
 ```bash
-npm run dev
+npm start
 ```
 
 ## Screenshots
