@@ -14,6 +14,11 @@ class IsManagerOrReadOnly(permissions.BasePermission):
         return request.user and request.user.is_authenticated and request.user.is_manager
 
 
+class IsManager(permissions.BasePermission):
+    def has_permission(self, request, view):
+        return bool(request.user and request.user.is_authenticated and request.user.is_manager)
+
+
 class IsTaskOwnerOrManager(permissions.BasePermission):
     """
     Custom permission to allow task owner or manager to edit.
@@ -26,3 +31,21 @@ class IsTaskOwnerOrManager(permissions.BasePermission):
         
         # Write permissions for owner or manager
         return obj.created_by == request.user or request.user.is_manager
+
+
+class IsAssigneeUpdatingStatus(permissions.BasePermission):
+    """
+    Lets the active assignee start or complete their own task. Only the
+    status field may change, and closed tasks stay closed.
+    """
+
+    ALLOWED_STATUSES = {'in_progress', 'completed'}
+
+    def has_object_permission(self, request, view, obj):
+        if request.method != 'PATCH' or set(request.data) != {'status'}:
+            return False
+        if request.data.get('status') not in self.ALLOWED_STATUSES:
+            return False
+        if obj.status in ('completed', 'cancelled'):
+            return False
+        return obj.assignments.filter(assigned_to=request.user, is_active=True).exists()

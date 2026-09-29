@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { Typography, Box, Tabs, Tab } from '@mui/material';
+import { Typography, Box, Tabs, Tab, LinearProgress } from '@mui/material';
 import Layout from '../components/layout/Layout';
 import TaskList from '../components/tasks/TaskList';
 import TaskDetails from '../components/tasks/TaskDetails';
@@ -10,7 +10,7 @@ import { Task, TaskStatus } from '../types/task.types';
 
 const MyTasksPage: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
-  const { tasks } = useSelector((state: RootState) => state.tasks);
+  const { myTasks: tasks, loading } = useSelector((state: RootState) => state.tasks);
   const [selectedTab, setSelectedTab] = useState(0);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
@@ -63,8 +63,8 @@ const MyTasksPage: React.FC = () => {
           sx={{
             mb: 3,
             '& .MuiTab-root': { textTransform: 'none', fontWeight: 500 },
-            '& .Mui-selected': { color: '#028090', fontWeight: 700 },
-            '& .MuiTabs-indicator': { bgcolor: '#028090' },
+            '& .Mui-selected': { color: 'var(--accent)', fontWeight: 700 },
+            '& .MuiTabs-indicator': { bgcolor: 'var(--accent)' },
           }}
         >
           <Tab label={`Active (${filterTasks(['assigned', 'in_progress']).length})`} />
@@ -72,12 +72,17 @@ const MyTasksPage: React.FC = () => {
           <Tab label={`Overdue (${filterTasks(['overdue']).length})`} />
         </Tabs>
 
-        <TaskList
-          tasks={getTasksByTab()}
-          onView={handleView}
-          onStatusChange={() => dispatch(fetchMyTasks())}
-          showFilters={false}
-        />
+        {loading && tasks.length === 0 ? (
+          <LinearProgress sx={{ '& .MuiLinearProgress-bar': { bgcolor: 'var(--accent)' } }} />
+        ) : (
+          <TaskList
+            tasks={getTasksByTab()}
+            onView={handleView}
+            onStatusChange={() => dispatch(fetchMyTasks())}
+            showFilters={false}
+            canProgress
+          />
+        )}
 
         <TaskDetails
           task={selectedTask}

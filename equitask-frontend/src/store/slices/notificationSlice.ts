@@ -9,9 +9,7 @@ const initialState: NotificationState = {
 };
 
 export const fetchNotifications = createAsyncThunk('notifications/fetchAll', async () => {
-  const data = await notificationService.getNotifications();
-  // Ensure we return an array
-  return Array.isArray(data) ? data : (data.results || []);
+  return notificationService.getNotifications();
 });
 
 export const fetchUnreadCount = createAsyncThunk('notifications/fetchUnreadCount', async () => {

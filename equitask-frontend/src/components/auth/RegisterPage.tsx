@@ -44,8 +44,8 @@ const RegisterPage: React.FC = () => {
       await dispatch(register(formData)).unwrap();
       toast.success("Account created! Welcome to EquiTask.");
       navigate("/dashboard");
-    } catch (err: any) {
-      toast.error(err.message || "Registration failed.");
+    } catch (err) {
+      toast.error(typeof err === "string" ? err : "Registration failed.");
     } finally {
       setLoading(false);
     }
@@ -68,17 +68,17 @@ const RegisterPage: React.FC = () => {
         <Box sx={{
           position: "absolute", top: -100, right: -100,
           width: 350, height: 350, borderRadius: "50%",
-          bgcolor: "rgba(2,128,144,0.12)",
+          bgcolor: "rgb(var(--accent-rgb) / 0.12)",
         }} />
         <Box sx={{
           position: "absolute", bottom: -80, left: -80,
           width: 280, height: 280, borderRadius: "50%",
-          bgcolor: "rgba(2,128,144,0.08)",
+          bgcolor: "rgb(var(--accent-rgb) / 0.08)",
         }} />
 
         <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 7 }}>
           <Box sx={{
-            width: 44, height: 44, borderRadius: "13px", bgcolor: "#028090",
+            width: 44, height: 44, borderRadius: "13px", bgcolor: "var(--accent)",
             display: "flex", alignItems: "center", justifyContent: "center",
           }}>
             <Typography sx={{ color: "white", fontWeight: 800, fontSize: 22 }}>E</Typography>
@@ -113,7 +113,7 @@ const RegisterPage: React.FC = () => {
         <Box sx={{ width: "100%", maxWidth: 440 }}>
           <Box sx={{ display: { xs: "flex", md: "none" }, alignItems: "center", gap: 1.5, mb: 4 }}>
             <Box sx={{
-              width: 36, height: 36, borderRadius: "10px", bgcolor: "#028090",
+              width: 36, height: 36, borderRadius: "10px", bgcolor: "var(--accent)",
               display: "flex", alignItems: "center", justifyContent: "center",
             }}>
               <Typography sx={{ color: "white", fontWeight: 800, fontSize: 16 }}>E</Typography>
@@ -154,7 +154,11 @@ const RegisterPage: React.FC = () => {
                   InputProps={{
                     endAdornment: (
                       <InputAdornment position="end">
-                        <IconButton onClick={() => setShowPassword(!showPassword)} edge="end" size="small">
+                        <IconButton
+                          onClick={() => setShowPassword(!showPassword)}
+                          edge="end" size="small"
+                          aria-label={showPassword ? 'Hide password' : 'Show password'}
+                        >
                           {showPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
                         </IconButton>
                       </InputAdornment>
@@ -174,7 +178,7 @@ const RegisterPage: React.FC = () => {
                   type="submit" fullWidth variant="contained" disabled={loading}
                   sx={{
                     py: 1.5, fontSize: 15, fontWeight: 600,
-                    bgcolor: "#028090", "&:hover": { bgcolor: "#025F6B" },
+                    bgcolor: "var(--accent)", "&:hover": { bgcolor: "var(--accent-dark)" },
                     borderRadius: "10px", mt: 0.5,
                   }}
                 >
@@ -186,7 +190,7 @@ const RegisterPage: React.FC = () => {
 
           <Typography sx={{ mt: 3, textAlign: "center", color: "#64748B", fontSize: 14 }}>
             Already have an account?{" "}
-            <Link to="/login" style={{ color: "#028090", fontWeight: 600, textDecoration: "none" }}>
+            <Link to="/login" style={{ color: "var(--accent)", fontWeight: 600, textDecoration: "none" }}>
               Sign in
             </Link>
           </Typography>

@@ -3,6 +3,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError
+from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
 from django.contrib.auth import authenticate, get_user_model
 from .serializers import UserSerializer, RegisterSerializer, LoginSerializer
 
@@ -101,14 +102,22 @@ class LogoutView(APIView):
         )
 
 
-class CurrentUserView(generics.RetrieveUpdateAPIView):
-    """Get and update current user"""
+class CurrentUserView(generics.RetrieveUpdateDestroyAPIView):
+    """Get, update, or deactivate the current user"""
 
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = UserSerializer
 
     def get_object(self):
         return self.request.user
+
+    def perform_destroy(self, instance):
+        # Deactivate instead of deleting: assignments, performance logs and the
+        # fairness history all reference the user. Every session is revoked.
+        instance.is_active = False
+        instance.save(update_fields=['is_active'])
+        for token in OutstandingToken.objects.filter(user=instance):
+            BlacklistedToken.objects.get_or_create(token=token)
 
 
 class ChangePasswordView(APIView):

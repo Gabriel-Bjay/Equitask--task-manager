@@ -4,8 +4,10 @@ from .views import TaskViewSet, TaskAssignmentViewSet
 
 # Create router
 router = DefaultRouter()
-router.register(r'', TaskViewSet, basename='task')
+# Order matters: registered first, TaskViewSet's detail route (<pk>/) would
+# capture "assignments/" and make the assignment list unreachable.
 router.register(r'assignments', TaskAssignmentViewSet, basename='taskassignment')
+router.register(r'', TaskViewSet, basename='task')
 
 # Include router URLs
 urlpatterns = [

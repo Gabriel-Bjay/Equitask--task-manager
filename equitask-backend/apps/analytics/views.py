@@ -1,9 +1,12 @@
+from datetime import timedelta
+
 from rest_framework import viewsets  # type: ignore
 from rest_framework.decorators import action  # type: ignore
 from rest_framework.response import Response  # type: ignore
 from rest_framework.permissions import IsAuthenticated  # type: ignore
 from django.contrib.auth import get_user_model  # type: ignore
 from django.db.models import Count, Q  # type: ignore
+from django.utils import timezone  # type: ignore
 from apps.tasks.models import Task, TaskAssignment
 
 User = get_user_model()
@@ -217,11 +220,11 @@ class AnalyticsDashboardViewSet(viewsets.ViewSet):
 
         * ``active`` (default): only open work (assigned or in progress) held
           via a live assignment. Answers "who is carrying load right now".
-        * ``all``: every task the engine assigned, open or finished. Because a
-          task's assignment is deactivated when the task completes, this scope
-          deliberately does NOT filter on is_active, so the full allocation
-          history is visible. Answers "how evenly did the engine distribute
-          work over the run" - the allocation-fairness measure.
+        * ``all``: every task the engine assigned, open or finished. This
+          scope deliberately does NOT filter on is_active, so work that was
+          later reassigned still counts for each member who held it and the
+          full allocation history is visible. Answers "how evenly did the
+          engine distribute work over the run" - the allocation-fairness measure.
 
         Each task is counted once per member via id__in, so repeated
         assignments of the same task to the same member are not double counted.
@@ -308,6 +311,37 @@ class AnalyticsDashboardViewSet(viewsets.ViewSet):
                 'min_hours': round(min(hours_vector), 2) if hours_vector else 0.0,
                 'max_hours': round(max(hours_vector), 2) if hours_vector else 0.0,
             },
+        })
+
+    @action(detail=False, methods=['get'])
+    def upcoming_workload(self, request):
+        """Estimated hours of open work due on each of the next seven days.
+
+        ``?scope=mine`` limits it to tasks actively assigned to the requester.
+        """
+        today = timezone.localdate()
+        days = [today + timedelta(days=offset) for offset in range(7)]
+        tasks = Task.objects.filter(
+            status__in=['pending', 'assigned', 'in_progress'],
+            deadline__date__gte=days[0],
+            deadline__date__lte=days[-1],
+        )
+        if request.query_params.get('scope') == 'mine':
+            tasks = tasks.filter(
+                assignments__assigned_to=request.user, assignments__is_active=True
+            )
+
+        buckets = {day: {'hours': 0.0, 'tasks': 0} for day in days}
+        for deadline, estimate in tasks.values_list('deadline', 'estimated_hours'):
+            bucket = buckets[timezone.localtime(deadline).date()]
+            bucket['hours'] += float(estimate) if estimate is not None else float(DEFAULT_TASK_HOURS)
+            bucket['tasks'] += 1
+
+        return Response({
+            'days': [
+                {'date': day.isoformat(), 'hours': round(b['hours'], 1), 'tasks': b['tasks']}
+                for day, b in buckets.items()
+            ],
         })
 
 

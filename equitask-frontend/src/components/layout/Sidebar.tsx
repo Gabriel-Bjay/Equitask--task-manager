@@ -15,7 +15,7 @@ import {
 import { Link as RouterLink, useLocation } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../store/store';
-
+import { roleLabel } from '../../utils/constants';
 
 export const DRAWER_WIDTH = 240;
 export const COLLAPSED_WIDTH = 64;
@@ -56,7 +56,7 @@ const DrawerContent: React.FC<{ collapsed?: boolean }> = ({ collapsed }) => {
       }}>
         <Box sx={{
           width: 38, height: 38, borderRadius: '11px',
-          bgcolor: '#028090', display: 'flex',
+          bgcolor: 'var(--accent)', display: 'flex',
           alignItems: 'center', justifyContent: 'center', flexShrink: 0,
         }}>
           <Typography sx={{ color: 'white', fontWeight: 800, fontSize: 18 }}>E</Typography>
@@ -94,10 +94,10 @@ const DrawerContent: React.FC<{ collapsed?: boolean }> = ({ collapsed }) => {
                     py: 1.1,
                     px: collapsed ? 1 : 1.5,
                     justifyContent: collapsed ? 'center' : 'flex-start',
-                    bgcolor: isActive ? 'rgba(2,128,144,0.9)' : 'transparent',
+                    bgcolor: isActive ? 'rgb(var(--accent-rgb) / 0.9)' : 'transparent',
                     '&:hover': {
                       bgcolor: isActive
-                        ? 'rgba(2,128,144,0.9)'
+                        ? 'rgb(var(--accent-rgb) / 0.9)'
                         : 'rgba(255,255,255,0.07)',
                     },
                     transition: 'background-color 0.15s ease',
@@ -142,7 +142,7 @@ const DrawerContent: React.FC<{ collapsed?: boolean }> = ({ collapsed }) => {
         gap: 1.5, justifyContent: collapsed ? 'center' : 'flex-start',
       }}>
         <Avatar sx={{
-          width: 34, height: 34, bgcolor: '#028090',
+          width: 34, height: 34, bgcolor: 'var(--accent)',
           fontSize: 12, fontWeight: 700, flexShrink: 0,
         }}>
           {initials || '?'}
@@ -157,9 +157,9 @@ const DrawerContent: React.FC<{ collapsed?: boolean }> = ({ collapsed }) => {
             </Typography>
             <Typography sx={{
               color: 'rgba(255,255,255,0.45)', fontSize: 11,
-              textTransform: 'capitalize', lineHeight: 1.3,
+              lineHeight: 1.3,
             }}>
-              {user?.role || 'Member'}
+              {roleLabel(user?.role)}
             </Typography>
           </Box>
         )}

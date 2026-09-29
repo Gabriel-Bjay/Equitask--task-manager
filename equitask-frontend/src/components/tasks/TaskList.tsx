@@ -16,11 +16,12 @@ interface TaskListProps {
   onCreateNew?: () => void;
   onStatusChange?: () => void;
   showFilters?: boolean;
+  canProgress?: boolean;
 }
 
 const TaskList: React.FC<TaskListProps> = ({
   tasks, onEdit, onDelete, onView,
-  onStatusChange, showFilters = true,
+  onStatusChange, showFilters = true, canProgress = false,
 }) => {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<TaskStatus | 'all'>('all');
@@ -125,7 +126,7 @@ const TaskList: React.FC<TaskListProps> = ({
               </Typography>
               <Typography
                 variant="caption"
-                sx={{ color: '#028090', cursor: 'pointer', fontWeight: 600 }}
+                sx={{ color: 'var(--accent)', cursor: 'pointer', fontWeight: 600 }}
                 onClick={() => {
                   setSearch('');
                   setStatusFilter('all');
@@ -171,6 +172,7 @@ const TaskList: React.FC<TaskListProps> = ({
               onDelete={onDelete}
               onView={onView}
               onStatusChange={onStatusChange}
+              canProgress={canProgress}
             />
           ))}
         </Box>

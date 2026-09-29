@@ -33,6 +33,9 @@ export const USER_ROLES = [
   { value: 'team_member', label: 'Team Member' },
 ];
 
+export const roleLabel = (role?: string | null) =>
+  USER_ROLES.find((r) => r.value === role)?.label || 'Member';
+
 export const RAPID_PRINCIPLES = [
   { key: 'responsibility', label: 'Responsibility', color: '#2196f3' },
   { key: 'accountability', label: 'Accountability', color: '#4caf50' },

@@ -1,13 +1,13 @@
 import api from './api';
-import { Task, CreateTaskData } from '../types/task.types';
-import { unwrapList } from '../utils/pagination';
+import { Task, CreateTaskData, TaskQuery } from '../types/task.types';
+import { TaskRecommendations } from '../types/recommendation.types';
+import { PaginatedResponse, unwrapList } from '../utils/pagination';
 
 export const taskService = {
-  // Get all tasks
-  getAllTasks: async (params?: any): Promise<Task[]> => {
+  // One page of tasks, plus the total count across all pages
+  getTaskPage: async (params?: TaskQuery): Promise<PaginatedResponse<Task>> => {
     const response = await api.get('/tasks/', { params });
-    // Handle both bare-array and paginated ({ count, results }) responses
-    return unwrapList<Task>(response.data);
+    return response.data;
   },
 
   // Get my tasks
@@ -35,7 +35,7 @@ export const taskService = {
   },
 
   // Get recommendations (ranked candidates for a task)
-  getRecommendations: async (taskId: number) => {
+  getRecommendations: async (taskId: number): Promise<TaskRecommendations> => {
     const response = await api.get(`/tasks/${taskId}/recommend/`);
     return response.data;
   },

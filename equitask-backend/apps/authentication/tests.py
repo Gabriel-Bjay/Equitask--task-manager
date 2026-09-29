@@ -1,3 +1,227 @@
-from django.test import TestCase
+from django.contrib.auth import get_user_model
+from rest_framework import status
+from rest_framework.test import APITestCase
 
-# Create your tests here.
+from apps.authentication.models import UserSkill
+
+User = get_user_model()
+
+PASSWORD = 'Str0ng-pass-123'
+
+
+def make_user(email, role='team_member'):
+    handle = email.split('@')[0]
+    return User.objects.create_user(
+        email=email,
+        username=handle,
+        password=PASSWORD,
+        first_name=handle.title(),
+        last_name='Test',
+        role=role,
+    )
+
+
+class RegistrationTests(APITestCase):
+    url = '/api/auth/register/'
+
+    def payload(self, **overrides):
+        data = {
+            'email': 'new@test.local',
+            'username': 'newbie',
+            'password': PASSWORD,
+            'password2': PASSWORD,
+            'first_name': 'New',
+            'last_name': 'User',
+        }
+        data.update(overrides)
+        return data
+
+    def test_register_returns_user_and_tokens(self):
+        response = self.client.post(self.url, self.payload(), format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        body = response.json()
+        self.assertEqual(body['user']['email'], 'new@test.local')
+        self.assertIn('access', body['tokens'])
+        self.assertIn('refresh', body['tokens'])
+
+    def test_register_cannot_self_assign_a_role(self):
+        response = self.client.post(
+            self.url, self.payload(role='administrator'), format='json'
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(User.objects.get(email='new@test.local').role, 'team_member')
+
+    def test_register_rejects_mismatched_passwords(self):
+        response = self.client.post(
+            self.url, self.payload(password2='Different-pass-456'), format='json'
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(User.objects.filter(email='new@test.local').exists())
+
+    def test_register_rejects_common_password(self):
+        response = self.client.post(
+            self.url, self.payload(password='password', password2='password'), format='json'
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+
+class LoginTests(APITestCase):
+    url = '/api/auth/login/'
+
+    def setUp(self):
+        self.user = make_user('member@test.local')
+
+    def test_valid_credentials_return_tokens(self):
+        response = self.client.post(
+            self.url, {'email': 'member@test.local', 'password': PASSWORD}, format='json'
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('access', response.json()['tokens'])
+
+    def test_wrong_password_is_rejected(self):
+        response = self.client.post(
+            self.url, {'email': 'member@test.local', 'password': 'not-the-password'}, format='json'
+        )
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_inactive_user_cannot_log_in(self):
+        self.user.is_active = False
+        self.user.save()
+        response = self.client.post(
+            self.url, {'email': 'member@test.local', 'password': PASSWORD}, format='json'
+        )
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+
+class TokenLifecycleTests(APITestCase):
+    def setUp(self):
+        make_user('member@test.local')
+        response = self.client.post(
+            '/api/auth/login/',
+            {'email': 'member@test.local', 'password': PASSWORD},
+            format='json',
+        )
+        self.tokens = response.json()['tokens']
+
+    def refresh(self, token):
+        return self.client.post('/api/auth/token/refresh/', {'refresh': token}, format='json')
+
+    def test_refresh_rotates_and_blacklists_the_old_refresh_token(self):
+        response = self.refresh(self.tokens['refresh'])
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        rotated = response.json()['refresh']
+        self.assertNotEqual(rotated, self.tokens['refresh'])
+
+        self.assertEqual(self.refresh(self.tokens['refresh']).status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertEqual(self.refresh(rotated).status_code, status.HTTP_200_OK)
+
+    def test_logout_blacklists_the_refresh_token(self):
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {self.tokens['access']}")
+        response = self.client.post(
+            '/api/auth/logout/', {'refresh': self.tokens['refresh']}, format='json'
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        self.client.credentials()
+        self.assertEqual(self.refresh(self.tokens['refresh']).status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_logout_requires_the_refresh_token(self):
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {self.tokens['access']}")
+        response = self.client.post('/api/auth/logout/', {}, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+
+class CurrentUserTests(APITestCase):
+    url = '/api/auth/me/'
+
+    def setUp(self):
+        self.user = make_user('member@test.local')
+        self.client.force_authenticate(user=self.user)
+
+    def test_requires_authentication(self):
+        self.client.force_authenticate(user=None)
+        self.assertEqual(self.client.get(self.url).status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_returns_the_current_user(self):
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.json()['email'], 'member@test.local')
+
+    def test_can_update_own_profile(self):
+        response = self.client.patch(
+            self.url, {'first_name': 'Renamed', 'skills': ['Python']}, format='json'
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.first_name, 'Renamed')
+        self.assertEqual(self.user.skills, ['Python'])
+
+    def test_skill_edits_keep_engine_proficiencies_in_sync(self):
+        UserSkill.objects.create(user=self.user, skill='Python', proficiency=5)
+        UserSkill.objects.create(user=self.user, skill='SQL', proficiency=4)
+
+        response = self.client.patch(self.url, {'skills': ['python', 'React']}, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        levels = dict(self.user.skill_entries.values_list('skill', 'proficiency'))
+        self.assertEqual(levels, {'Python': 5, 'React': 3})
+
+    def test_delete_deactivates_the_account_and_revokes_sessions(self):
+        self.client.force_authenticate(user=None)
+        login = self.client.post(
+            '/api/auth/login/', {'email': 'member@test.local', 'password': PASSWORD}, format='json'
+        )
+        tokens = login.json()['tokens']
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {tokens['access']}")
+
+        response = self.client.delete(self.url)
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.user.refresh_from_db()
+        self.assertFalse(self.user.is_active)
+
+        self.client.credentials()
+        refresh = self.client.post(
+            '/api/auth/token/refresh/', {'refresh': tokens['refresh']}, format='json'
+        )
+        self.assertEqual(refresh.status_code, status.HTTP_401_UNAUTHORIZED)
+        relogin = self.client.post(
+            '/api/auth/login/', {'email': 'member@test.local', 'password': PASSWORD}, format='json'
+        )
+        self.assertEqual(relogin.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_cannot_change_own_role_or_active_flag(self):
+        response = self.client.patch(
+            self.url, {'role': 'administrator', 'is_active': False}, format='json'
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.role, 'team_member')
+        self.assertTrue(self.user.is_active)
+
+
+class ChangePasswordTests(APITestCase):
+    url = '/api/auth/change-password/'
+
+    def setUp(self):
+        self.user = make_user('member@test.local')
+        self.client.force_authenticate(user=self.user)
+
+    def test_changes_password_when_current_password_matches(self):
+        response = self.client.post(
+            self.url,
+            {'current_password': PASSWORD, 'new_password': 'An0ther-pass-789'},
+            format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password('An0ther-pass-789'))
+
+    def test_rejects_wrong_current_password(self):
+        response = self.client.post(
+            self.url,
+            {'current_password': 'not-it', 'new_password': 'An0ther-pass-789'},
+            format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password(PASSWORD))

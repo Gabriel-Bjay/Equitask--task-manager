@@ -14,13 +14,14 @@ import {
 import NotificationBell from '../notifications/NotificationBell';
 import { logout } from '../../store/slices/authSlice';
 import { AppDispatch, RootState } from '../../store/store';
-import { DRAWER_WIDTH } from './Sidebar';
+import { roleLabel } from '../../utils/constants';
 
 interface NavbarProps {
   onMenuClick: () => void;
+  sidebarWidth: number;
 }
 
-const Navbar: React.FC<NavbarProps> = ({ onMenuClick }) => {
+const Navbar: React.FC<NavbarProps> = ({ onMenuClick, sidebarWidth }) => {
   const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
   const { user } = useSelector((state: RootState) => state.auth);
@@ -53,14 +54,16 @@ const Navbar: React.FC<NavbarProps> = ({ onMenuClick }) => {
         bgcolor: 'white',
         borderBottom: '1px solid #EEF2F6',
         zIndex: (theme) => theme.zIndex.drawer + 1,
-        ml: { sm: `${DRAWER_WIDTH}px` },
-        width: { sm: `calc(100% - ${DRAWER_WIDTH}px)` },
+        ml: { sm: `${sidebarWidth}px` },
+        width: { sm: `calc(100% - ${sidebarWidth}px)` },
+        transition: 'margin-left 0.2s ease, width 0.2s ease',
       }}
     >
       <Toolbar sx={{ gap: 1, minHeight: '64px !important' }}>
         <IconButton
           edge="start"
           onClick={onMenuClick}
+          aria-label="Toggle navigation"
           sx={{ color: '#1A3C5E', mr: 1 }}
         >
           <MenuIcon />
@@ -74,9 +77,9 @@ const Navbar: React.FC<NavbarProps> = ({ onMenuClick }) => {
 
         <NotificationBell />
 
-        <IconButton onClick={handleMenu} sx={{ p: 0.5, ml: 0.5 }}>
+        <IconButton onClick={handleMenu} aria-label="Account menu" sx={{ p: 0.5, ml: 0.5 }}>
           <Avatar sx={{
-            width: 34, height: 34, bgcolor: '#028090',
+            width: 34, height: 34, bgcolor: 'var(--accent)',
             fontSize: 12, fontWeight: 700,
           }}>
             {initials || '?'}
@@ -96,8 +99,8 @@ const Navbar: React.FC<NavbarProps> = ({ onMenuClick }) => {
             <Typography variant="body2" fontWeight={600} color="#1A3C5E">
               {user?.first_name} {user?.last_name}
             </Typography>
-            <Typography variant="caption" color="textSecondary" sx={{ textTransform: 'capitalize' }}>
-              {user?.role}
+            <Typography variant="caption" color="textSecondary">
+              {roleLabel(user?.role)}
             </Typography>
           </Box>
           <Divider />
