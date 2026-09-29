@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import {
   Box, Typography, Paper, TextField, Button,
-  Grid, Divider, Switch, FormControlLabel,
+  Grid, Divider, Switch,
   Alert, Stack,
 } from '@mui/material';
 import {
   Lock as LockIcon,
   Notifications as NotifIcon,
-  DeleteForever as DeleteIcon,
+  PersonOff as DeactivateIcon,
   Save as SaveIcon,
   Visibility, VisibilityOff,
   Palette as PaletteIcon,
@@ -17,10 +17,21 @@ import Layout from '../components/layout/Layout';
 import { toast } from 'react-toastify';
 import api from '../services/api';
 import { useDispatch } from 'react-redux';
-import { logout } from '../store/slices/authSlice';
+import { clearSession } from '../store/slices/authSlice';
 import { useNavigate } from 'react-router-dom';
 import { AppDispatch } from '../store/store';
 import { useThemeContext } from '../context/ThemeContext';
+import { apiErrorMessage } from '../utils/apiError';
+
+// In-app alerts the backend sends (see apps/notifications); there is no email.
+const ALERTS = [
+  { label: 'New assignments', sub: 'When a task is assigned to you' },
+  { label: 'Deadline reminders', sub: '48 and 24 hours before a task is due' },
+  { label: 'Overdue alerts', sub: 'When one of your open tasks passes its deadline' },
+  { label: 'Progress updates', sub: 'When a task you are on changes status, or one you created is completed' },
+];
+
+const CONFIRM_WORD = 'DEACTIVATE';
 
 const SectionHeader: React.FC<{
   icon: React.ReactNode;
@@ -30,7 +41,7 @@ const SectionHeader: React.FC<{
   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2.5 }}>
     <Box sx={{
       width: 38, height: 38, borderRadius: '10px',
-      bgcolor: '#E8F4F6', display: 'flex',
+      bgcolor: 'var(--accent-soft)', display: 'flex',
       alignItems: 'center', justifyContent: 'center',
     }}>
       {icon}
@@ -59,17 +70,10 @@ const SettingsPage: React.FC = () => {
   const [savingPassword, setSavingPassword] = useState(false);
   const { accentColor, setAccentColor, compactMode, setCompactMode, animationsEnabled, setAnimationsEnabled } = useThemeContext();
 
-  // Notification preferences
-  const [notifPrefs, setNotifPrefs] = useState({
-    emailDeadlines: true,
-    emailAssignments: true,
-    emailUpdates: false,
-    inAppAll: true,
-  });
-
-  // Delete account
+  // Deactivate account
   const [deleteConfirm, setDeleteConfirm] = useState('');
   const [showDeleteWarning, setShowDeleteWarning] = useState(false);
+  const [deactivating, setDeactivating] = useState(false);
 
   const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setPasswords({ ...passwords, [e.target.name]: e.target.value });
@@ -96,34 +100,28 @@ const SettingsPage: React.FC = () => {
       });
       toast.success('Password updated successfully');
       setPasswords({ current: '', newPass: '', confirm: '' });
-    } catch (err: any) {
-      toast.error(
-        err?.response?.data?.message ||
-        err?.response?.data?.current_password?.[0] ||
-        'Failed to update password'
-      );
+    } catch (err) {
+      toast.error(apiErrorMessage(err, 'Failed to update password'));
     } finally {
       setSavingPassword(false);
     }
   };
 
-  const handleNotifToggle = (key: keyof typeof notifPrefs) => {
-    setNotifPrefs({ ...notifPrefs, [key]: !notifPrefs[key] });
-    toast.success('Preference saved');
-  };
-
-  const handleDeleteAccount = async () => {
-    if (deleteConfirm !== 'DELETE') {
-      toast.error('Type DELETE to confirm');
+  const handleDeactivateAccount = async () => {
+    if (deleteConfirm !== CONFIRM_WORD) {
+      toast.error(`Type ${CONFIRM_WORD} to confirm`);
       return;
     }
+    setDeactivating(true);
     try {
       await api.delete('/auth/me/');
-      dispatch(logout());
+      // The server has already revoked every session for this account.
+      dispatch(clearSession());
       navigate('/login');
-      toast.success('Account deleted');
-    } catch {
-      toast.error('Failed to delete account');
+      toast.success('Account deactivated');
+    } catch (err) {
+      toast.error(apiErrorMessage(err, 'Failed to deactivate account'));
+      setDeactivating(false);
     }
   };
 
@@ -150,7 +148,7 @@ const SettingsPage: React.FC = () => {
               {/* Change Password */}
               <Paper sx={{ p: 3 }}>
                 <SectionHeader
-                  icon={<LockIcon sx={{ color: '#028090', fontSize: 20 }} />}
+                  icon={<LockIcon sx={{ color: 'var(--accent)', fontSize: 20 }} />}
                   title="Change Password"
                   subtitle="Update your account password"
                 />
@@ -168,6 +166,7 @@ const SettingsPage: React.FC = () => {
                           <IconButton
                             onClick={() => setShowCurrent(!showCurrent)}
                             edge="end" size="small"
+                            aria-label={showCurrent ? 'Hide current password' : 'Show current password'}
                           >
                             {showCurrent
                               ? <VisibilityOff fontSize="small" />
@@ -191,6 +190,7 @@ const SettingsPage: React.FC = () => {
                           <IconButton
                             onClick={() => setShowNew(!showNew)}
                             edge="end" size="small"
+                            aria-label={showNew ? 'Hide new password' : 'Show new password'}
                           >
                             {showNew
                               ? <VisibilityOff fontSize="small" />
@@ -225,8 +225,8 @@ const SettingsPage: React.FC = () => {
                       onClick={handleSavePassword}
                       disabled={savingPassword}
                       sx={{
-                        bgcolor: '#028090',
-                        '&:hover': { bgcolor: '#025F6B' },
+                        bgcolor: 'var(--accent)',
+                        '&:hover': { bgcolor: 'var(--accent-dark)' },
                       }}
                     >
                       {savingPassword ? 'Saving...' : 'Update Password'}
@@ -235,68 +235,26 @@ const SettingsPage: React.FC = () => {
                 </Stack>
               </Paper>
 
-              {/* Notification Preferences */}
+              {/* Notifications */}
               <Paper sx={{ p: 3 }}>
                 <SectionHeader
-                  icon={<NotifIcon sx={{ color: '#028090', fontSize: 20 }} />}
-                  title="Notification Preferences"
-                  subtitle="Choose what alerts you receive"
+                  icon={<NotifIcon sx={{ color: 'var(--accent)', fontSize: 20 }} />}
+                  title="Notifications"
+                  subtitle="Alerts appear in the bell at the top of every page"
                 />
 
                 <Stack spacing={0}>
-                  {[
-                    {
-                      key: 'emailDeadlines' as const,
-                      label: 'Deadline reminders',
-                      sub: 'Get emailed before tasks are due',
-                    },
-                    {
-                      key: 'emailAssignments' as const,
-                      label: 'Task assignments',
-                      sub: 'Get emailed when a task is assigned to you',
-                    },
-                    {
-                      key: 'emailUpdates' as const,
-                      label: 'System updates',
-                      sub: 'General platform news and announcements',
-                    },
-                    {
-                      key: 'inAppAll' as const,
-                      label: 'In-app notifications',
-                      sub: 'Show alerts in the notification bell',
-                    },
-                  ].map((item, index, arr) => (
-                    <React.Fragment key={item.key}>
-                      <Box sx={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        py: 1.5,
-                      }}>
-                        <Box>
-                          <Typography sx={{
-                            fontSize: 14, fontWeight: 500, color: '#1A3C5E',
-                          }}>
-                            {item.label}
-                          </Typography>
-                          <Typography variant="caption" sx={{ color: '#94A3B8' }}>
-                            {item.sub}
-                          </Typography>
-                        </Box>
-                        <Switch
-                          checked={notifPrefs[item.key]}
-                          onChange={() => handleNotifToggle(item.key)}
-                          sx={{
-                            '& .MuiSwitch-switchBase.Mui-checked': {
-                              color: '#028090',
-                            },
-                            '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
-                              bgcolor: '#028090',
-                            },
-                          }}
-                        />
+                  {ALERTS.map((item, index) => (
+                    <React.Fragment key={item.label}>
+                      <Box sx={{ py: 1.5 }}>
+                        <Typography sx={{ fontSize: 14, fontWeight: 500, color: '#1A3C5E' }}>
+                          {item.label}
+                        </Typography>
+                        <Typography variant="caption" sx={{ color: '#94A3B8' }}>
+                          {item.sub}
+                        </Typography>
                       </Box>
-                      {index < arr.length - 1 && (
+                      {index < ALERTS.length - 1 && (
                         <Divider sx={{ borderColor: '#F1F5F9' }} />
                       )}
                     </React.Fragment>
@@ -389,12 +347,16 @@ const SettingsPage: React.FC = () => {
                     ].map((theme) => (
                     <Box
                         key={theme.color}
+                        component="button"
+                        type="button"
+                        aria-label={`${theme.label} accent`}
+                        aria-pressed={accentColor === theme.color}
                         onClick={() => {
                         setAccentColor(theme.color);
                         toast.success(`${theme.label} theme applied`);
                         }}
                         sx={{
-                        width: 30, height: 30,
+                        width: 30, height: 30, p: 0,
                         borderRadius: '50%',
                         bgcolor: theme.color,
                         cursor: 'pointer',
@@ -403,6 +365,7 @@ const SettingsPage: React.FC = () => {
                             : '3px solid transparent',
                         transition: 'transform 0.15s ease',
                         '&:hover': { transform: 'scale(1.15)' },
+                        '&:focus-visible': { outline: '2px solid #1A3C5E', outlineOffset: 2 },
                         }}
                     />
                     ))}
@@ -436,9 +399,9 @@ const SettingsPage: React.FC = () => {
                         color: '#1A3C5E',
                         fontWeight: 500,
                         '&:hover': {
-                          borderColor: '#028090',
-                          color: '#028090',
-                          bgcolor: '#F0FAFB',
+                          borderColor: 'var(--accent)',
+                          color: 'var(--accent)',
+                          bgcolor: 'var(--accent-softer)',
                         },
                       }}
                     >
@@ -455,9 +418,9 @@ const SettingsPage: React.FC = () => {
                 bgcolor: '#FFFAFA',
               }}>
                 <SectionHeader
-                  icon={<DeleteIcon sx={{ color: '#f44336', fontSize: 20 }} />}
+                  icon={<DeactivateIcon sx={{ color: '#f44336', fontSize: 20 }} />}
                   title="Danger Zone"
-                  subtitle="Permanent account actions"
+                  subtitle="Account actions"
                 />
 
                 {!showDeleteWarning ? (
@@ -474,18 +437,19 @@ const SettingsPage: React.FC = () => {
                       },
                     }}
                   >
-                    Delete My Account
+                    Deactivate My Account
                   </Button>
                 ) : (
                   <Stack spacing={2}>
                     <Alert severity="error" sx={{ fontSize: 12 }}>
-                      This action is permanent and cannot be undone.
-                      All your data will be deleted.
+                      You will be signed out everywhere and will not be able to sign in again.
+                      Your completed work stays in the team history so fairness analytics stay
+                      accurate. An administrator can reactivate the account.
                     </Alert>
                     <TextField
                       fullWidth
                       size="small"
-                      label='Type "DELETE" to confirm'
+                      label={`Type "${CONFIRM_WORD}" to confirm`}
                       value={deleteConfirm}
                       onChange={(e) => setDeleteConfirm(e.target.value)}
                     />
@@ -504,15 +468,15 @@ const SettingsPage: React.FC = () => {
                       <Button
                         variant="contained"
                         fullWidth
-                        onClick={handleDeleteAccount}
-                        disabled={deleteConfirm !== 'DELETE'}
+                        onClick={handleDeactivateAccount}
+                        disabled={deleteConfirm !== CONFIRM_WORD || deactivating}
                         sx={{
                           bgcolor: '#f44336',
                           '&:hover': { bgcolor: '#d32f2f' },
                           '&:disabled': { bgcolor: '#FEECEC', color: '#f44336' },
                         }}
                       >
-                        Delete Account
+                        {deactivating ? 'Deactivating...' : 'Deactivate'}
                       </Button>
                     </Box>
                   </Stack>

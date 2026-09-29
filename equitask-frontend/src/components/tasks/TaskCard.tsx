@@ -1,16 +1,23 @@
 import React from 'react';
 import {
-  Card, CardContent, Typography, Chip, Box,
+  Card, CardContent, Typography, Chip, Box, Button,
   IconButton, Menu, MenuItem, Select, FormControl,
 } from '@mui/material';
-import { MoreVert as MoreIcon, Schedule as ScheduleIcon } from '@mui/icons-material';
-import { Task } from '../../types/task.types';
+import {
+  MoreVert as MoreIcon,
+  Schedule as ScheduleIcon,
+  Person as PersonIcon,
+  PlayArrow as StartIcon,
+  CheckCircle as DoneIcon,
+} from '@mui/icons-material';
+import { Task, TaskStatus } from '../../types/task.types';
 import { format } from 'date-fns';
 import { TASK_STATUSES, TASK_PRIORITIES } from '../../utils/constants';
 import { toast } from 'react-toastify';
 import api from '../../services/api';
-import { useSelector, UseSelector } from 'react-redux';
+import { useSelector } from 'react-redux';
 import { RootState } from '../../store/store';
+import { apiErrorMessage } from '../../utils/apiError';
 
 interface TaskCardProps {
   task: Task;
@@ -18,12 +25,18 @@ interface TaskCardProps {
   onDelete?: (id: number) => void;
   onView?: (task: Task) => void;
   onStatusChange?: () => void;
+  // The viewer is the task's assignee and may start or complete it.
+  canProgress?: boolean;
 }
 
+const statusLabel = (status: string) =>
+  TASK_STATUSES.find((s) => s.value === status)?.label || status;
+
 const TaskCard: React.FC<TaskCardProps> = ({
-  task, onEdit, onDelete, onView, onStatusChange,
+  task, onEdit, onDelete, onView, onStatusChange, canProgress = false,
 }) => {
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
+  const [updating, setUpdating] = React.useState(false);
   const { user } = useSelector((state: RootState) => state.auth);
   const isManager = user?.role === 'administrator' || user?.role === 'manager';
 
@@ -42,13 +55,28 @@ const TaskCard: React.FC<TaskCardProps> = ({
     task.priority === 'high' ? '#f44336' :
     task.priority === 'medium' ? '#ff9800' : '#4caf50';
 
-  const handleStatusChange = async (newStatus: string) => {
+  const estimatedHours = task.estimated_hours != null ? Number(task.estimated_hours) : 0;
+
+  const canStart = canProgress && !isManager && ['assigned', 'overdue'].includes(task.status);
+  const canComplete =
+    canProgress && !isManager && ['assigned', 'in_progress', 'overdue'].includes(task.status);
+
+  const menuItems = [
+    onView && { label: 'View details', action: () => onView(task) },
+    onEdit && { label: 'Edit', action: () => onEdit(task) },
+    onDelete && { label: 'Delete', action: () => onDelete(task.id), danger: true },
+  ].filter(Boolean) as { label: string; action: () => void; danger?: boolean }[];
+
+  const handleStatusChange = async (newStatus: TaskStatus) => {
+    setUpdating(true);
     try {
       await api.patch(`/tasks/${task.id}/`, { status: newStatus });
-      toast.success(`Status updated to "${newStatus.replace('_', ' ')}"`);
+      toast.success(`Status updated to "${statusLabel(newStatus)}"`);
       onStatusChange?.();
-    } catch {
-      toast.error('Failed to update status');
+    } catch (error) {
+      toast.error(apiErrorMessage(error, 'Failed to update status'));
+    } finally {
+      setUpdating(false);
     }
   };
 
@@ -65,16 +93,19 @@ const TaskCard: React.FC<TaskCardProps> = ({
     }}>
       <CardContent>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <Box sx={{ flex: 1, pr: 1 }}>
+          <Box sx={{ flex: 1, pr: 1, minWidth: 0 }}>
 
             {/* Title */}
             <Typography
               variant="h6"
               sx={{
                 fontSize: 16, fontWeight: 600, color: '#1A3C5E',
-                cursor: 'pointer',
-                '&:hover': { color: '#028090' },
-                transition: 'color 0.15s ease',
+                overflowWrap: 'anywhere',
+                ...(onView && {
+                  cursor: 'pointer',
+                  '&:hover': { color: 'var(--accent)' },
+                  transition: 'color 0.15s ease',
+                }),
               }}
               onClick={() => onView?.(task)}
             >
@@ -82,20 +113,22 @@ const TaskCard: React.FC<TaskCardProps> = ({
             </Typography>
 
             {/* Description */}
-            <Typography
-              variant="body2"
-              color="textSecondary"
-              sx={{ mt: 0.5, fontSize: 13, lineHeight: 1.6 }}
-            >
-              {task.description.length > 120
-                ? `${task.description.substring(0, 120)}...`
-                : task.description}
-            </Typography>
+            {task.description && (
+              <Typography
+                variant="body2"
+                color="textSecondary"
+                sx={{ mt: 0.5, fontSize: 13, lineHeight: 1.6 }}
+              >
+                {task.description.length > 120
+                  ? `${task.description.substring(0, 120)}...`
+                  : task.description}
+              </Typography>
+            )}
 
             {/* Chips */}
             <Box sx={{ mt: 1.5, display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
               <Chip
-                label={task.status.replace('_', ' ').toUpperCase()}
+                label={statusLabel(task.status).toUpperCase()}
                 size="small"
                 sx={{
                   backgroundColor: statusColor, color: 'white',
@@ -117,7 +150,8 @@ const TaskCard: React.FC<TaskCardProps> = ({
                 sx={{ fontSize: 10, height: 22, textTransform: 'capitalize' }}
               />
             </Box>
-            {/* Status updater — managers and admins only */}
+
+            {/* Status updater — managers and admins */}
             {isManager && (
               <Box sx={{ mt: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
                 <Typography variant="caption" sx={{ color: '#94A3B8', fontWeight: 500 }}>
@@ -127,24 +161,66 @@ const TaskCard: React.FC<TaskCardProps> = ({
                   <Select
                     native
                     value={task.status}
-                    onChange={(e) => handleStatusChange(e.target.value)}
+                    disabled={updating}
+                    onChange={(e) => handleStatusChange(e.target.value as TaskStatus)}
+                    inputProps={{ 'aria-label': `Status of ${task.title}` }}
                     sx={{
                       fontSize: 12, borderRadius: '8px', height: 28,
                       color: '#1A3C5E',
                       '& .MuiOutlinedInput-notchedOutline': { borderColor: '#E2E8F0' },
                     }}
                   >
-                    <option value="pending">Pending</option>
-                    <option value="assigned">Assigned</option>
-                    <option value="in_progress">In Progress</option>
-                    <option value="completed">Completed</option>
-                    <option value="overdue">Overdue</option>
+                    {TASK_STATUSES.map((s) => (
+                      <option key={s.value} value={s.value}>{s.label}</option>
+                    ))}
                   </Select>
                 </FormControl>
               </Box>
             )}
-            {/* Deadline and hours */}
+
+            {/* Progress actions — the assignee */}
+            {(canStart || canComplete) && (
+              <Box sx={{ mt: 1.5, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                {canStart && (
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    startIcon={<StartIcon />}
+                    disabled={updating}
+                    onClick={() => handleStatusChange('in_progress')}
+                    sx={{ borderColor: 'var(--accent)', color: 'var(--accent)', textTransform: 'none' }}
+                  >
+                    Start
+                  </Button>
+                )}
+                {canComplete && (
+                  <Button
+                    size="small"
+                    variant="contained"
+                    startIcon={<DoneIcon />}
+                    disabled={updating}
+                    onClick={() => handleStatusChange('completed')}
+                    sx={{
+                      bgcolor: 'var(--accent)', textTransform: 'none',
+                      '&:hover': { bgcolor: 'var(--accent-dark)' },
+                    }}
+                  >
+                    Mark complete
+                  </Button>
+                )}
+              </Box>
+            )}
+
+            {/* Assignee, deadline and hours */}
             <Box sx={{ mt: 1.5, display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
+              {task.assignee !== undefined && (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  <PersonIcon sx={{ color: '#94A3B8', fontSize: 14 }} />
+                  <Typography variant="caption" color="textSecondary">
+                    {task.assignee ? task.assignee.name : 'Unassigned'}
+                  </Typography>
+                </Box>
+              )}
               {task.deadline && (
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                   <ScheduleIcon fontSize="small" sx={{ color: '#94A3B8', fontSize: 14 }} />
@@ -153,9 +229,9 @@ const TaskCard: React.FC<TaskCardProps> = ({
                   </Typography>
                 </Box>
               )}
-              {task.estimated_hours && (
+              {estimatedHours > 0 && (
                 <Typography variant="caption" sx={{ color: '#94A3B8' }}>
-                  ~{task.estimated_hours}h estimated
+                  ~{estimatedHours}h estimated
                 </Typography>
               )}
             </Box>
@@ -166,7 +242,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
                 {task.required_skills.map((skill, idx) => (
                   <Chip
                     key={idx} label={skill} size="small" variant="outlined"
-                    sx={{ fontSize: 10, height: 20, color: '#028090', borderColor: '#028090' }}
+                    sx={{ fontSize: 10, height: 20, color: 'var(--accent)', borderColor: 'var(--accent)' }}
                   />
                 ))}
               </Box>
@@ -174,13 +250,16 @@ const TaskCard: React.FC<TaskCardProps> = ({
           </Box>
 
           {/* Menu button */}
-          <IconButton
-            onClick={handleMenuOpen}
-            size="small"
-            sx={{ color: '#94A3B8', '&:hover': { color: '#1A3C5E' } }}
-          >
-            <MoreIcon fontSize="small" />
-          </IconButton>
+          {menuItems.length > 0 && (
+            <IconButton
+              onClick={handleMenuOpen}
+              size="small"
+              aria-label={`Actions for ${task.title}`}
+              sx={{ color: '#94A3B8', '&:hover': { color: '#1A3C5E' } }}
+            >
+              <MoreIcon fontSize="small" />
+            </IconButton>
+          )}
         </Box>
 
         {/* Dropdown menu */}
@@ -190,18 +269,15 @@ const TaskCard: React.FC<TaskCardProps> = ({
           onClose={handleMenuClose}
           PaperProps={{ elevation: 2, sx: { borderRadius: 2, minWidth: 150 } }}
         >
-          <MenuItem onClick={() => { onView?.(task); handleMenuClose(); }} sx={{ fontSize: 14 }}>
-            View Details
-          </MenuItem>
-          <MenuItem onClick={() => { onEdit?.(task); handleMenuClose(); }} sx={{ fontSize: 14 }}>
-            Edit
-          </MenuItem>
-          <MenuItem
-            onClick={() => { onDelete?.(task.id); handleMenuClose(); }}
-            sx={{ fontSize: 14, color: 'error.main' }}
-          >
-            Delete
-          </MenuItem>
+          {menuItems.map((item) => (
+            <MenuItem
+              key={item.label}
+              onClick={() => { item.action(); handleMenuClose(); }}
+              sx={{ fontSize: 14, ...(item.danger && { color: 'error.main' }) }}
+            >
+              {item.label}
+            </MenuItem>
+          ))}
         </Menu>
       </CardContent>
     </Card>

@@ -21,6 +21,7 @@ import {
 import FairnessPanel from '../components/analytics/FairnessPanel';
 import api from '../services/api';
 import Grid from '@mui/material/Grid';
+import { useThemeContext } from '../context/ThemeContext';
 
 interface TeamMember {
   id: number;
@@ -104,6 +105,7 @@ const SummaryCard: React.FC<{
 );
 
 const AnalyticsPage: React.FC = () => {
+  const { accentColor } = useThemeContext();
   const [data, setData] = useState<OverviewData | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -122,7 +124,7 @@ const AnalyticsPage: React.FC = () => {
   }, []);
 
   const completionRate = data
-    ? Math.round(
+    ? Math.floor(
         (data.task_stats.completed / (data.task_stats.total || 1)) * 100
       )
     : 0;
@@ -347,7 +349,7 @@ const AnalyticsPage: React.FC = () => {
                         }}
                         cursor={{ fill: '#F8FAFC' }}
                       />
-                      <Bar dataKey="tasks" fill="#028090" radius={[6, 6, 0, 0]} name="Tasks" />
+                      <Bar dataKey="tasks" fill={accentColor} radius={[6, 6, 0, 0]} name="Tasks" />
                     </BarChart>
                   </ResponsiveContainer>
                 </Box>
@@ -399,7 +401,7 @@ const AnalyticsPage: React.FC = () => {
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                           <Avatar sx={{
                             width: 32, height: 32,
-                            bgcolor: '#028090', fontSize: 12, fontWeight: 700,
+                            bgcolor: 'var(--accent)', fontSize: 12, fontWeight: 700,
                           }}>
                             {member.name.split(' ').map(n => n[0]).join('').toUpperCase()}
                           </Avatar>
@@ -426,7 +428,7 @@ const AnalyticsPage: React.FC = () => {
                           label={member.in_progress}
                           size="small"
                           sx={{
-                            bgcolor: '#E8F4F6', color: '#028090',
+                            bgcolor: 'var(--accent-soft)', color: 'var(--accent)',
                             fontWeight: 700, fontSize: 11, height: 22,
                           }}
                         />
@@ -500,7 +502,7 @@ const AnalyticsPage: React.FC = () => {
               xs: 12,
               md: 7
             }}>
-            <WorkloadChart />
+            <WorkloadChart scope="team" />
           </Grid>
         </Grid>
 

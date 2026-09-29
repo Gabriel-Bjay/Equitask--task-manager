@@ -2,12 +2,18 @@ export type TaskPriority = 'low' | 'medium' | 'high' | 'critical';
 export type TaskStatus = 'pending' | 'assigned' | 'in_progress' | 'completed' | 'overdue' | 'cancelled';
 export type TaskCategory = 'development' | 'testing' | 'design' | 'documentation' | 'research' | 'review' | 'meeting' | 'other';
 
+export interface TaskAssignee {
+  id: number;
+  name: string;
+}
+
 export interface Task {
   id: number;
   title: string;
   description: string;
   created_by: number;
   created_by_name?: string;
+  assignee?: TaskAssignee | null;
   category: TaskCategory;
   priority: TaskPriority;
   status: TaskStatus;
@@ -15,9 +21,9 @@ export interface Task {
   estimated_hours: number;
   actual_hours?: number;
   complexity_score: number;
-  deadline?: string;
-  started_at?: string;
-  completed_at?: string;
+  deadline?: string | null;
+  started_at?: string | null;
+  completed_at?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -43,11 +49,21 @@ export interface CreateTaskData {
   required_skills: string[];
   estimated_hours: number;
   complexity_score: number;
-  deadline?: string;
+  deadline?: string | null;
+}
+
+export interface TaskQuery {
+  page?: number;
+  search?: string;
+  status?: TaskStatus;
+  priority?: TaskPriority;
+  category?: TaskCategory;
 }
 
 export interface TaskState {
   tasks: Task[];
+  totalCount: number;
+  myTasks: Task[];
   currentTask: Task | null;
   loading: boolean;
   error: string | null;

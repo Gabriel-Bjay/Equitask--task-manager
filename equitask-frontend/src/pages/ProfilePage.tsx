@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   Box, Typography, Paper, TextField, Button,
-  Avatar, Grid, Chip, Divider, Stack,
+  Avatar, Grid, Chip, Divider,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -93,7 +93,7 @@ const ProfilePage: React.FC = () => {
             <Paper sx={{ p: 3, textAlign: 'center' }}>
               <Avatar sx={{
                 width: 90, height: 90,
-                bgcolor: '#028090', fontSize: 32,
+                bgcolor: 'var(--accent)', fontSize: 32,
                 fontWeight: 700, mx: 'auto', mb: 2,
               }}>
                 {initials || <PersonIcon sx={{ fontSize: 40 }} />}
@@ -107,7 +107,7 @@ const ProfilePage: React.FC = () => {
               <Chip
                 label={user?.role?.replace('_', ' ') || 'team member'}
                 sx={{
-                  bgcolor: '#028090', color: 'white',
+                  bgcolor: 'var(--accent)', color: 'white',
                   fontWeight: 600, textTransform: 'capitalize', fontSize: 12,
                 }}
               />
@@ -131,9 +131,9 @@ const ProfilePage: React.FC = () => {
                       size="small"
                       onDelete={() => handleRemoveSkill(skill)}
                       sx={{
-                        bgcolor: '#E8F4F6', color: '#028090',
+                        bgcolor: 'var(--accent-soft)', color: 'var(--accent)',
                         fontWeight: 500, fontSize: 11,
-                        '& .MuiChip-deleteIcon': { color: '#028090', fontSize: 14 },
+                        '& .MuiChip-deleteIcon': { color: 'var(--accent)', fontSize: 14 },
                       }}
                     />
                   ))}
@@ -142,10 +142,10 @@ const ProfilePage: React.FC = () => {
 
               {/* Why skills matter */}
               <Box sx={{
-                mt: 2, p: 1.5, bgcolor: '#F0FAFB',
+                mt: 2, p: 1.5, bgcolor: 'var(--accent-softer)',
                 borderRadius: 2, textAlign: 'left',
               }}>
-                <Typography variant="caption" sx={{ color: '#028090', fontWeight: 600 }}>
+                <Typography variant="caption" sx={{ color: 'var(--accent)', fontWeight: 600 }}>
                   💡 Why skills matter
                 </Typography>
                 <Typography variant="caption" sx={{ color: '#64748B', display: 'block', mt: 0.3 }}>
@@ -249,7 +249,7 @@ const ProfilePage: React.FC = () => {
                   onClick={handleAddSkill}
                   startIcon={<AddIcon />}
                   sx={{
-                    bgcolor: '#028090', '&:hover': { bgcolor: '#025F6B' },
+                    bgcolor: 'var(--accent)', '&:hover': { bgcolor: 'var(--accent-dark)' },
                     whiteSpace: 'nowrap', flexShrink: 0,
                   }}
                 >
@@ -269,9 +269,9 @@ const ProfilePage: React.FC = () => {
                       label={skill}
                       onDelete={() => handleRemoveSkill(skill)}
                       sx={{
-                        bgcolor: '#E8F4F6', color: '#028090',
+                        bgcolor: 'var(--accent-soft)', color: 'var(--accent)',
                         fontWeight: 500,
-                        '& .MuiChip-deleteIcon': { color: '#028090' },
+                        '& .MuiChip-deleteIcon': { color: 'var(--accent)' },
                       }}
                     />
                   ))}
@@ -286,7 +286,7 @@ const ProfilePage: React.FC = () => {
                   onClick={handleSave}
                   disabled={saving}
                   sx={{
-                    bgcolor: '#028090', '&:hover': { bgcolor: '#025F6B' },
+                    bgcolor: 'var(--accent)', '&:hover': { bgcolor: 'var(--accent-dark)' },
                     px: 4,
                   }}
                 >

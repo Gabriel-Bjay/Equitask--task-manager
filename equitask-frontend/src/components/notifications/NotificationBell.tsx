@@ -60,7 +60,11 @@ const NotificationBell: React.FC = () => {
 
   return (
     <>
-      <IconButton onClick={handleOpen} sx={{ color: '#64748B' }}>
+      <IconButton
+        onClick={handleOpen}
+        aria-label={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : 'Notifications'}
+        sx={{ color: '#64748B' }}
+      >
         <Badge
           badgeContent={unreadCount}
           color="error"
@@ -106,7 +110,7 @@ const NotificationBell: React.FC = () => {
               startIcon={<DoneAllIcon sx={{ fontSize: 14 }} />}
               onClick={handleMarkAllRead}
               sx={{
-                fontSize: 12, color: '#028090',
+                fontSize: 12, color: 'var(--accent)',
                 textTransform: 'none', fontWeight: 600,
               }}
             >
@@ -140,7 +144,7 @@ const NotificationBell: React.FC = () => {
                   whiteSpace: 'normal',
                   alignItems: 'flex-start',
                   gap: 1.5,
-                  bgcolor: notification.is_read ? 'white' : '#F0FAFB',
+                  bgcolor: notification.is_read ? 'white' : 'var(--accent-softer)',
                   borderBottom: '1px solid #F1F5F9',
                   '&:hover': { bgcolor: '#F8FAFC' },
                 }}
@@ -165,7 +169,7 @@ const NotificationBell: React.FC = () => {
                       {notification.title}
                     </Typography>
                     {!notification.is_read && (
-                      <CircleIcon sx={{ fontSize: 8, color: '#028090', flexShrink: 0, mt: 0.4 }} />
+                      <CircleIcon sx={{ fontSize: 8, color: 'var(--accent)', flexShrink: 0, mt: 0.4 }} />
                     )}
                   </Box>
                   <Typography sx={{
