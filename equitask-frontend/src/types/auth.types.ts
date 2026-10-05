@@ -34,6 +34,12 @@ export interface AuthTokens {
   refresh: string;
 }
 
+// A demo login the API offers while its public demo is switched on.
+export interface DemoAccount {
+  role: 'manager' | 'team_member';
+  name: string;
+}
+
 export interface AuthState {
   user: User | null;
   tokens: AuthTokens | null;

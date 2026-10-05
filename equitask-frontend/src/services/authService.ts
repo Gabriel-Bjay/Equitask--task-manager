@@ -1,10 +1,22 @@
 import api from './api';
-import { LoginCredentials, RegisterData, User, AuthTokens } from '../types/auth.types';
+import { LoginCredentials, RegisterData, User, AuthTokens, DemoAccount } from '../types/auth.types';
 
 export const authService = {
   // Login
   login: async (credentials: LoginCredentials): Promise<{ user: User; tokens: AuthTokens }> => {
     const response = await api.post('/auth/login/', credentials);
+    return response.data;
+  },
+
+  // Demo logins the API offers; empty when its public demo is off.
+  demoAccounts: async (): Promise<DemoAccount[]> => {
+    const response = await api.get('/auth/demo-accounts/');
+    return response.data.accounts;
+  },
+
+  // Sign in as the demo manager or team member, without a password.
+  demoLogin: async (role: DemoAccount['role']): Promise<{ user: User; tokens: AuthTokens }> => {
+    const response = await api.post('/auth/demo-login/', { role });
     return response.data;
   },
 

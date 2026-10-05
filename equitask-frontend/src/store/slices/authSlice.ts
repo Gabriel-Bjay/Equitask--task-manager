@@ -1,6 +1,6 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import { authService } from '../../services/authService';
-import { AuthState, LoginCredentials, RegisterData } from '../../types/auth.types';
+import { AuthState, DemoAccount, LoginCredentials, RegisterData } from '../../types/auth.types';
 import { apiErrorMessage } from '../../utils/apiError';
 
 // Safe JSON parse helper
@@ -38,6 +38,20 @@ export const login = createAsyncThunk(
       return data;
     } catch (error: any) {
       return rejectWithValue(apiErrorMessage(error, 'Login failed'));
+    }
+  }
+);
+
+export const demoLogin = createAsyncThunk(
+  'auth/demoLogin',
+  async (role: DemoAccount['role'], { rejectWithValue }) => {
+    try {
+      const data = await authService.demoLogin(role);
+      localStorage.setItem('tokens', JSON.stringify(data.tokens));
+      localStorage.setItem('user', JSON.stringify(data.user));
+      return data;
+    } catch (error: any) {
+      return rejectWithValue(apiErrorMessage(error, 'The demo is unavailable right now.'));
     }
   }
 );
@@ -102,6 +116,21 @@ const authSlice = createSlice({
       state.tokens = action.payload.tokens;
     });
     builder.addCase(login.rejected, (state, action) => {
+      state.loading = false;
+      state.error = action.payload as string;
+    });
+
+    builder.addCase(demoLogin.pending, (state) => {
+      state.loading = true;
+      state.error = null;
+    });
+    builder.addCase(demoLogin.fulfilled, (state, action) => {
+      state.loading = false;
+      state.isAuthenticated = true;
+      state.user = action.payload.user;
+      state.tokens = action.payload.tokens;
+    });
+    builder.addCase(demoLogin.rejected, (state, action) => {
       state.loading = false;
       state.error = action.payload as string;
     });
