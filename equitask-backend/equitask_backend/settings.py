@@ -199,7 +199,16 @@ REST_FRAMEWORK = {
         'rest_framework.filters.OrderingFilter',
     ],
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+    # Only views that opt in are throttled.
+    'DEFAULT_THROTTLE_RATES': {
+        'demo_login': '20/min',
+    },
 }
+
+# Public demo: setting DEMO_PASSWORD lets ensure_demo load the sample team
+# and turns on one-click demo sign-in. Leave it empty where data is real.
+DEMO_PASSWORD = config('DEMO_PASSWORD', default='')
+
 # JWT Settings
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=15),

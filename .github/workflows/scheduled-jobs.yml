@@ -9,6 +9,7 @@ on:
     - cron: '0 3,9,15,21 * * *'  # every 6 hours: overdue check
     - cron: '0 22 * * *'         # 01:00 daily: workload metrics
     - cron: '0 23 * * 6'         # Sunday 02:00: retrain recommendation weights
+    - cron: '0 0 * * 0'          # Sunday 03:00: rebuild the public demo around today
   workflow_dispatch:
     inputs:
       job:
@@ -19,6 +20,7 @@ on:
           - overdue-check
           - workload-metrics
           - retrain-weights
+          - refresh-demo
 
 concurrency:
   group: scheduled-jobs
@@ -75,3 +77,9 @@ jobs:
       - name: Retrain recommendation weights
         if: env.DATABASE_URL != '' && (env.JOB == '0 23 * * 6' || env.JOB == 'retrain-weights')
         run: python manage.py retrain_weights
+
+      # Moves the demo's deadlines back around today and undoes visitors'
+      # changes. Does nothing where the demo isn't loaded.
+      - name: Refresh the demo
+        if: env.DATABASE_URL != '' && (env.JOB == '0 0 * * 0' || env.JOB == 'refresh-demo')
+        run: python manage.py ensure_demo --refresh

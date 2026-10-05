@@ -1,11 +1,15 @@
 from datetime import timedelta
 from decimal import Decimal
+from io import StringIO
 
 from django.contrib.auth import get_user_model
+from django.core.management import call_command
+from django.test import override_settings
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
+from apps.authentication.demo import DEMO_LOGINS
 from apps.notifications.models import Notification
 from apps.tasks.models import Task, TaskAssignment, TaskPerformanceLog
 
@@ -252,3 +256,40 @@ class TaskAssignmentEndpointTests(TaskApiTestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assignment.refresh_from_db()
         self.assertEqual(self.assignment.justification, 'Best skill match.')
+
+
+@override_settings(DEMO_PASSWORD='Demo-pass-123')
+class EnsureDemoCommandTests(APITestCase):
+    def run_command(self, *args):
+        call_command('ensure_demo', *args, stdout=StringIO())
+
+    def test_loads_the_team_board_and_history_once(self):
+        self.run_command()
+        self.run_command()
+
+        manager = User.objects.get(email=DEMO_LOGINS['manager'])
+        member = User.objects.get(email=DEMO_LOGINS['team_member'])
+        self.assertEqual(User.objects.filter(email__endswith='@demo.equitask').count(), 11)
+        self.assertEqual(Task.objects.filter(created_by=manager, status='completed').count(), 180)
+        self.assertEqual(Task.objects.filter(created_by=manager, status='pending').count(), 6)
+        self.assertTrue(manager.check_password('Demo-pass-123'))
+        self.assertEqual(member.role, 'team_member')
+        self.assertTrue(Notification.objects.filter(user=member, is_read=False).exists())
+
+    def test_refresh_rebuilds_the_tasks_and_drops_visitor_changes(self):
+        self.run_command()
+        manager = User.objects.get(email=DEMO_LOGINS['manager'])
+        Task.objects.create(title='Visitor task', created_by=manager)
+        Task.objects.filter(created_by=manager, status='pending').update(status='cancelled')
+
+        self.run_command('--refresh')
+
+        self.assertFalse(Task.objects.filter(title='Visitor task').exists())
+        self.assertEqual(Task.objects.filter(created_by=manager, status='pending').count(), 6)
+        self.assertEqual(Task.objects.filter(created_by=manager).count(), 180 + 23)
+
+    @override_settings(DEMO_PASSWORD='')
+    def test_does_nothing_while_the_demo_is_off(self):
+        self.run_command()
+
+        self.assertFalse(User.objects.filter(email__endswith='@demo.equitask').exists())
