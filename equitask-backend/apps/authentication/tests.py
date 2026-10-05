@@ -1,4 +1,9 @@
+import os
+from io import StringIO
+from unittest import mock
+
 from django.contrib.auth import get_user_model
+from django.core.management import call_command
 from rest_framework import status
 from rest_framework.test import APITestCase
 
@@ -225,3 +230,42 @@ class ChangePasswordTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.user.refresh_from_db()
         self.assertTrue(self.user.check_password(PASSWORD))
+
+
+class EnsureAdminCommandTests(APITestCase):
+    env = {'ADMIN_EMAIL': 'owner@test.local', 'ADMIN_PASSWORD': PASSWORD}
+
+    def run_command(self):
+        call_command('ensure_admin', stdout=StringIO())
+
+    def test_creates_an_administrator_who_can_sign_in(self):
+        with mock.patch.dict(os.environ, self.env):
+            self.run_command()
+
+        admin = User.objects.get(email='owner@test.local')
+        self.assertEqual(admin.role, 'administrator')
+        self.assertTrue(admin.is_superuser)
+        response = self.client.post(
+            '/api/auth/login/',
+            {'email': 'owner@test.local', 'password': PASSWORD},
+            format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_running_again_restores_the_role_and_password_without_duplicating(self):
+        with mock.patch.dict(os.environ, self.env):
+            self.run_command()
+        User.objects.filter(email='owner@test.local').update(role='team_member')
+        with mock.patch.dict(os.environ, {**self.env, 'ADMIN_PASSWORD': 'An0ther-pass-456'}):
+            self.run_command()
+
+        admin = User.objects.get(email='owner@test.local')
+        self.assertEqual(User.objects.filter(email='owner@test.local').count(), 1)
+        self.assertEqual(admin.role, 'administrator')
+        self.assertTrue(admin.check_password('An0ther-pass-456'))
+
+    def test_does_nothing_without_credentials(self):
+        with mock.patch.dict(os.environ, {'ADMIN_EMAIL': '', 'ADMIN_PASSWORD': ''}):
+            self.run_command()
+
+        self.assertFalse(User.objects.filter(role='administrator').exists())

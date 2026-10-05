@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 import os
 from pathlib import Path
 from datetime import timedelta
+import dj_database_url
 from decouple import config
 from django.core.exceptions import ImproperlyConfigured
 
@@ -20,6 +21,19 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = config('SECRET_KEY')
 DEBUG = config('DEBUG', default=False, cast=bool)
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost').split(',')
+
+# Render sets this to the service's public hostname.
+RENDER_EXTERNAL_HOSTNAME = config('RENDER_EXTERNAL_HOSTNAME', default='')
+if RENDER_EXTERNAL_HOSTNAME:
+    ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
+
+# Hosts terminate HTTPS at their proxy; trust its header so Django knows the
+# request was secure (needed for the admin's CSRF check).
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+# Outside local development, only send the admin's cookies over HTTPS.
+SESSION_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SECURE = not DEBUG
 
 # Application definition
 INSTALLED_APPS = [
@@ -48,6 +62,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',  # Serves admin and API docs assets
     'corsheaders.middleware.CorsMiddleware',  # Add CORS
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -77,11 +92,20 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'equitask_backend.wsgi.application'
 
-# Database: SQLite for zero-config local dev, MySQL when DB_ENGINE=mysql.
-# Most hosts wipe the filesystem on redeploy, so deployments must use MySQL.
+# Database: DATABASE_URL wins when set (PostgreSQL or MySQL, e.g. a Neon
+# connection string). Otherwise SQLite for zero-config local dev, or MySQL
+# when DB_ENGINE=mysql. Most hosts wipe the filesystem on redeploy, so
+# deployments need DATABASE_URL or MySQL rather than SQLite.
+DATABASE_URL = config('DATABASE_URL', default='')
 DB_ENGINE = config('DB_ENGINE', default='sqlite')
 
-if DB_ENGINE == 'mysql':
+if DATABASE_URL:
+    DATABASES = {
+        # Health checks reconnect cleanly after a serverless database has
+        # scaled to zero and dropped idle connections.
+        'default': dj_database_url.parse(DATABASE_URL, conn_max_age=600, conn_health_checks=True),
+    }
+elif DB_ENGINE == 'mysql':
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.mysql',
@@ -142,9 +166,13 @@ TIME_ZONE = 'Africa/Nairobi'
 USE_I18N = True
 USE_TZ = True
 
-# Static files
+# Static files (collected at build time and served by WhiteNoise)
 STATIC_URL = 'static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+STORAGES = {
+    'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
+    'staticfiles': {'BACKEND': 'whitenoise.storage.CompressedStaticFilesStorage'},
+}
 
 MEDIA_URL = 'media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
