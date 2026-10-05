@@ -91,7 +91,7 @@ DB_HOST=localhost
 DB_PORT=3306
 ```
 
-Leave out `DB_ENGINE` (and the `DB_*` lines) to use a local SQLite file instead. Deployments must use MySQL, since most hosts wipe the filesystem on every redeploy.
+Leave out `DB_ENGINE` (and the `DB_*` lines) to use a local SQLite file instead. Deployments need a database that outlives the server, since most hosts wipe the filesystem on every redeploy: set `DATABASE_URL` (PostgreSQL or MySQL, for example a Neon connection string), or use `DB_ENGINE=mysql`.
 
 ```bash
 python manage.py migrate
@@ -115,7 +115,7 @@ Deadline reminders, overdue checks, daily workload metrics, and the weekly weigh
 celery -A equitask_backend worker -B -l info
 ```
 
-Each job can also be run by hand, for example `python manage.py retrain_weights`.
+Each job can also be run by hand, for example `python manage.py retrain_weights`. On hosting without a worker, the [Scheduled jobs workflow](.github/workflows/scheduled-jobs.yml) runs the same commands on the same schedule from GitHub Actions (see below).
 
 ### Frontend Setup
 
@@ -133,6 +133,25 @@ REACT_APP_API_URL=http://localhost:8000/api
 ```bash
 npm start
 ```
+
+## Deploying for free
+
+EquiTask runs on free plans with no card: the database on [Neon](https://neon.com), the API on [Render](https://render.com), the frontend on [Vercel](https://vercel.com), and the background jobs on GitHub Actions. Choose the same region for Neon and Render (Frankfurt is closest to East Africa).
+
+1. **Database (Neon).** Create a project, open **Connect**, turn off connection pooling, and copy the connection string (`postgresql://...`).
+2. **API (Render).** Create a **Web Service** from this repo:
+
+   | Setting | Value |
+   | --- | --- |
+   | Root Directory | `equitask-backend` |
+   | Build Command | `pip install -r requirements.txt && python manage.py collectstatic --no-input && python manage.py migrate && python manage.py ensure_admin` |
+   | Start Command | `gunicorn equitask_backend.wsgi --workers 1 --threads 4 --timeout 120` |
+
+   Environment variables: `PYTHON_VERSION` = `3.11.9`, `SECRET_KEY` (use **Generate**), `DATABASE_URL` (from Neon), and `ADMIN_EMAIL` / `ADMIN_PASSWORD` for the administrator account, which every deploy creates or restores. Add `FRONTEND_URL` once the frontend has its address.
+3. **Frontend (Vercel).** Import this repo with **Root Directory** `equitask-frontend` and set `REACT_APP_API_URL` to the Render address plus `/api` (for example `https://equitask-api.onrender.com/api`). Then set `FRONTEND_URL` on Render to the Vercel address, with no trailing slash.
+4. **Background jobs (GitHub Actions).** Under **Settings → Secrets and variables → Actions**, add `DATABASE_URL` and `SECRET_KEY` with the same values as on Render. To check it, run **Actions → Scheduled jobs → Run workflow**.
+
+What to expect on free plans: the API sleeps after 15 minutes without visits, so the first request afterwards takes about a minute. Uploaded profile pictures don't last, because the free server's disk is wiped whenever it restarts, sleeps or redeploys. GitHub pauses scheduled workflows after 60 days without commits; re-enable it from the **Actions** tab.
 
 ## Screenshots
 
