@@ -1,0 +1,77 @@
+name: Scheduled jobs
+
+# Stands in for Celery Beat on free hosting, where no worker runs: each run
+# executes the matching management command against the production database.
+# Times match the Beat schedule in Nairobi time (UTC+3); cron here is UTC.
+on:
+  schedule:
+    - cron: '0 6 * * *'          # 09:00 daily: deadline reminders (48h and 24h)
+    - cron: '0 3,9,15,21 * * *'  # every 6 hours: overdue check
+    - cron: '0 22 * * *'         # 01:00 daily: workload metrics
+    - cron: '0 23 * * 6'         # Sunday 02:00: retrain recommendation weights
+  workflow_dispatch:
+    inputs:
+      job:
+        description: Job to run now
+        type: choice
+        options:
+          - deadline-reminders
+          - overdue-check
+          - workload-metrics
+          - retrain-weights
+
+concurrency:
+  group: scheduled-jobs
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: equitask-backend
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      SECRET_KEY: ${{ secrets.SECRET_KEY }}
+      DEBUG: 'False'
+      # This repo's logs are public, so never print email contents to them.
+      EMAIL_BACKEND: django.core.mail.backends.dummy.EmailBackend
+      JOB: ${{ github.event.inputs.job || github.event.schedule }}
+    steps:
+      - name: Skip until the database secret is set
+        if: env.DATABASE_URL == ''
+        working-directory: .
+        run: echo "::notice::Add the DATABASE_URL and SECRET_KEY repository secrets to turn on scheduled jobs."
+
+      - uses: actions/checkout@v4
+        if: env.DATABASE_URL != ''
+
+      - uses: actions/setup-python@v5
+        if: env.DATABASE_URL != ''
+        with:
+          python-version-file: .python-version
+          cache: pip
+          cache-dependency-path: equitask-backend/requirements.txt
+
+      - name: Install dependencies
+        if: env.DATABASE_URL != ''
+        run: pip install -r requirements.txt
+
+      - name: Deadline reminders
+        if: env.DATABASE_URL != '' && (env.JOB == '0 6 * * *' || env.JOB == 'deadline-reminders')
+        run: |
+          python manage.py send_deadline_reminders --hours-before 48
+          python manage.py send_deadline_reminders --hours-before 24
+
+      - name: Overdue check
+        if: env.DATABASE_URL != '' && (env.JOB == '0 3,9,15,21 * * *' || env.JOB == 'overdue-check')
+        run: python manage.py check_overdue_tasks
+
+      - name: Workload metrics
+        if: env.DATABASE_URL != '' && (env.JOB == '0 22 * * *' || env.JOB == 'workload-metrics')
+        run: python manage.py update_workload_metrics
+
+      - name: Retrain recommendation weights
+        if: env.DATABASE_URL != '' && (env.JOB == '0 23 * * 6' || env.JOB == 'retrain-weights')
+        run: python manage.py retrain_weights
