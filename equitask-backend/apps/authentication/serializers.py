@@ -2,6 +2,7 @@ from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 
+from .demo import is_demo_account
 from .models import UserSkill
 
 User = get_user_model()
@@ -80,7 +81,13 @@ class RegisterSerializer(serializers.ModelSerializer):
                 {"password": "Passwords don't match"}
             )
         return attrs
-    
+
+    def validate_email(self, value):
+        # The demo's addresses are reserved for its shared sample accounts.
+        if is_demo_account(User(email=value)):
+            raise serializers.ValidationError('Use your own email address.')
+        return value
+
     def create(self, validated_data):
         validated_data.pop('password2')
         user = User.objects.create_user(**validated_data)

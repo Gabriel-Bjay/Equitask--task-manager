@@ -4,9 +4,11 @@ import {
   InputAdornment, IconButton,
 } from "@mui/material";
 import { Link, useNavigate } from "react-router-dom";
-import { Visibility, VisibilityOff, CheckCircle } from "@mui/icons-material";
+import { Visibility, VisibilityOff, CheckCircle, ArrowForward } from "@mui/icons-material";
 import { useAppDispatch, useAppSelector } from "../../store/hooks";
-import { login } from "../../store/slices/authSlice";
+import { demoLogin, login } from "../../store/slices/authSlice";
+import { authService } from "../../services/authService";
+import { DemoAccount } from "../../types/auth.types";
 import { toast } from "react-toastify";
 
 const features = [
@@ -14,6 +16,11 @@ const features = [
   "Real-time workload tracking and analytics",
   "RAPID principles built into every workflow",
 ];
+
+const DEMO_ROLES: Record<DemoAccount["role"], { label: string; hint: string }> = {
+  manager: { label: "Manager", hint: "Assign work with the recommendations and watch team fairness" },
+  team_member: { label: "Team member", hint: "Your tasks, deadlines and notifications" },
+};
 
 const LoginPage: React.FC = () => {
   const dispatch = useAppDispatch();
@@ -24,10 +31,35 @@ const LoginPage: React.FC = () => {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  // Offered only while the API's public demo is on.
+  const [demoAccounts, setDemoAccounts] = useState<DemoAccount[]>([]);
+  const [demoChecking, setDemoChecking] = useState(true);
 
   useEffect(() => {
     if (isAuthenticated) navigate("/dashboard");
   }, [isAuthenticated, navigate]);
+
+  useEffect(() => {
+    let active = true;
+    authService.demoAccounts()
+      .then((accounts) => { if (active) setDemoAccounts(accounts); })
+      .catch(() => { /* No demo on this deployment; the form still works. */ })
+      .finally(() => { if (active) setDemoChecking(false); });
+    return () => { active = false; };
+  }, []);
+
+  const handleDemo = async (role: DemoAccount["role"]) => {
+    setLoading(true);
+    try {
+      await dispatch(demoLogin(role)).unwrap();
+      toast.success(`Signed in as the demo ${DEMO_ROLES[role].label.toLowerCase()}.`);
+      navigate("/dashboard");
+    } catch (err: any) {
+      toast.error(err || "The demo is unavailable right now.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -184,6 +216,60 @@ const LoginPage: React.FC = () => {
               {loading ? "Signing in..." : "Sign in"}
             </Button>
           </Box>
+
+          {(demoChecking || demoAccounts.length > 0) && (
+            <Box sx={{ mt: 3 }}>
+              <Box sx={{
+                display: "flex", alignItems: "center", gap: 1.5, mb: 1.5,
+                color: "#94A3B8", fontSize: 12.5,
+                "&::before, &::after": { content: '""', flex: 1, height: "1px", bgcolor: "#E2E8F0" },
+              }}>
+                or explore with a demo account
+              </Box>
+              {demoChecking ? (
+                <Typography sx={{ textAlign: "center", color: "#94A3B8", fontSize: 13 }}>
+                  Loading demo accounts…
+                </Typography>
+              ) : (
+                <>
+                  {demoAccounts.map((account) => (
+                    <Button
+                      key={account.role}
+                      fullWidth
+                      variant="outlined"
+                      disabled={loading}
+                      onClick={() => handleDemo(account.role)}
+                      sx={{
+                        mb: 1, py: 1.25, px: 1.5, gap: 1.5,
+                        justifyContent: "flex-start", textAlign: "left", textTransform: "none",
+                        borderRadius: "10px", borderColor: "#E2E8F0", bgcolor: "white", color: "#1A3C5E",
+                        "&:hover": { borderColor: "var(--accent)", bgcolor: "rgb(var(--accent-rgb) / 0.06)" },
+                      }}
+                    >
+                      <Box component="span" sx={{
+                        flexShrink: 0, width: 92, py: 0.5, borderRadius: "7px", textAlign: "center",
+                        bgcolor: "#1A3C5E", color: "white", fontSize: 12, fontWeight: 700,
+                      }}>
+                        {DEMO_ROLES[account.role].label}
+                      </Box>
+                      <Box component="span" sx={{ flex: 1, minWidth: 0 }}>
+                        <Box component="span" sx={{ display: "block", fontWeight: 600, fontSize: 14 }}>
+                          {account.name}
+                        </Box>
+                        <Box component="span" sx={{ display: "block", color: "#64748B", fontSize: 12.5, lineHeight: 1.4 }}>
+                          {DEMO_ROLES[account.role].hint}
+                        </Box>
+                      </Box>
+                      <ArrowForward sx={{ color: "var(--accent)", fontSize: 18 }} />
+                    </Button>
+                  ))}
+                  <Typography sx={{ mt: 0.5, textAlign: "center", color: "#94A3B8", fontSize: 12.5 }}>
+                    Shared sample data that resets every week.
+                  </Typography>
+                </>
+              )}
+            </Box>
+          )}
 
           <Typography sx={{ mt: 3, textAlign: "center", color: "#64748B", fontSize: 14 }}>
             Don't have an account?{" "}

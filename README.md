@@ -153,6 +153,12 @@ EquiTask runs on free plans with no card: the database on [Neon](https://neon.co
 
 What to expect on free plans: the API sleeps after 15 minutes without visits, so the first request afterwards takes about a minute. Uploaded profile pictures don't last, because the free server's disk is wiped whenever it restarts, sleeps or redeploys. GitHub pauses scheduled workflows after 60 days without commits; re-enable it from the **Actions** tab.
 
+### Public demo
+
+To let visitors try EquiTask without signing up, set `DEMO_PASSWORD` on Render and add `&& python manage.py ensure_demo` to the end of the build command. The next deploy loads a sample product team: a manager, ten team members, four months of finished work for the recommendation engine to learn from, and a live board of pending, in-progress and overdue tasks with notifications. Later deploys leave the data alone.
+
+The sign-in page then offers **Manager** and **Team member** demo buttons that sign in without a password. Administrator is never offered. The demo accounts can't change their profile or password, or close the account, so every visitor finds them the same way. The Scheduled jobs workflow runs `ensure_demo --refresh` every Sunday, which rebuilds the demo board around the current date and clears visitors' changes. Leave `DEMO_PASSWORD` empty on a deployment with real data.
+
 ## Screenshots
 
 |Login                                   |Task List                  |Dashboard                     |

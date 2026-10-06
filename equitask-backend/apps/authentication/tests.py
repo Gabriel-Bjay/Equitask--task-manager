@@ -4,9 +4,11 @@ from unittest import mock
 
 from django.contrib.auth import get_user_model
 from django.core.management import call_command
+from django.test import override_settings
 from rest_framework import status
 from rest_framework.test import APITestCase
 
+from apps.authentication.demo import DEMO_LOGINS
 from apps.authentication.models import UserSkill
 
 User = get_user_model()
@@ -269,3 +271,67 @@ class EnsureAdminCommandTests(APITestCase):
             self.run_command()
 
         self.assertFalse(User.objects.filter(role='administrator').exists())
+
+
+@override_settings(DEMO_PASSWORD='Demo-pass-123')
+class DemoLoginTests(APITestCase):
+    def setUp(self):
+        self.manager = make_user(DEMO_LOGINS['manager'], role='manager')
+        self.member = make_user(DEMO_LOGINS['team_member'])
+
+    def test_lists_the_demo_logins(self):
+        response = self.client.get('/api/auth/demo-accounts/')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual([a['role'] for a in response.data['accounts']], ['manager', 'team_member'])
+
+    def test_signs_in_as_a_demo_role_without_a_password(self):
+        response = self.client.post('/api/auth/demo-login/', {'role': 'manager'}, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['user']['email'], DEMO_LOGINS['manager'])
+        self.assertIn('access', response.data['tokens'])
+
+    def test_administrator_is_never_offered(self):
+        response = self.client.post('/api/auth/demo-login/', {'role': 'administrator'}, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    @override_settings(DEMO_PASSWORD='')
+    def test_nothing_is_offered_while_the_demo_is_off(self):
+        self.assertEqual(self.client.get('/api/auth/demo-accounts/').data['accounts'], [])
+        response = self.client.post('/api/auth/demo-login/', {'role': 'manager'}, format='json')
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_demo_accounts_cannot_be_changed_or_closed(self):
+        self.client.force_authenticate(self.member)
+
+        edit = self.client.patch('/api/auth/me/', {'email': 'mine@test.local'}, format='json')
+        password = self.client.post(
+            '/api/auth/change-password/',
+            {'current_password': PASSWORD, 'new_password': 'N3w-pass-456'},
+            format='json',
+        )
+        close = self.client.delete('/api/auth/me/')
+
+        self.assertEqual(
+            [edit.status_code, password.status_code, close.status_code],
+            [status.HTTP_403_FORBIDDEN] * 3,
+        )
+        self.member.refresh_from_db()
+        self.assertTrue(self.member.is_active)
+        self.assertEqual(self.member.email, DEMO_LOGINS['team_member'])
+        self.assertTrue(self.member.check_password(PASSWORD))
+
+    def test_demo_addresses_cannot_be_registered(self):
+        response = self.client.post('/api/auth/register/', {
+            'email': 'mercy@demo.equitask',
+            'username': 'mercy',
+            'password': PASSWORD,
+            'password2': PASSWORD,
+            'first_name': 'Mercy',
+            'last_name': 'Copy',
+        }, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('email', response.data)
