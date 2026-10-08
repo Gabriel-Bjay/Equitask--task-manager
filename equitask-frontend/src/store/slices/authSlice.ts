@@ -1,7 +1,7 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import { authService } from '../../services/authService';
 import { AuthState, DemoAccount, LoginCredentials, RegisterData } from '../../types/auth.types';
-import { apiErrorMessage } from '../../utils/apiError';
+import { apiErrorMessage, apiFieldErrors } from '../../utils/apiError';
 
 // Safe JSON parse helper
 const safeParse = (key: string) => {
@@ -65,7 +65,10 @@ export const register = createAsyncThunk(
       localStorage.setItem('user', JSON.stringify(response.user));
       return response;
     } catch (error: any) {
-      return rejectWithValue(apiErrorMessage(error, 'Registration failed'));
+      return rejectWithValue({
+        message: apiErrorMessage(error, 'Registration failed'),
+        fields: apiFieldErrors(error),
+      });
     }
   }
 );
@@ -147,7 +150,7 @@ const authSlice = createSlice({
     });
     builder.addCase(register.rejected, (state, action) => {
       state.loading = false;
-      state.error = action.payload as string;
+      state.error = (action.payload as { message: string } | undefined)?.message ?? 'Registration failed';
     });
 
     builder.addCase(getCurrentUser.fulfilled, (state, action) => {

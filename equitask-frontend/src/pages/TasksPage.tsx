@@ -74,6 +74,9 @@ const TasksPage: React.FC = () => {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [formData, setFormData] = useState<TaskForm>(EMPTY_FORM);
+  // What the form opened with, so closing can tell whether anything changed.
+  const [formStart, setFormStart] = useState<TaskForm>(EMPTY_FORM);
+  const [confirmingDiscard, setConfirmingDiscard] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const [viewing, setViewing] = useState<Task | null>(null);
@@ -118,12 +121,14 @@ const TasksPage: React.FC = () => {
   const openCreate = () => {
     setEditingId(null);
     setFormData(EMPTY_FORM);
+    setFormStart(EMPTY_FORM);
     setShowForm(true);
   };
 
   const openEdit = (task: Task) => {
     setEditingId(task.id);
     setFormData(toForm(task));
+    setFormStart(toForm(task));
     setShowForm(true);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -132,6 +137,16 @@ const TasksPage: React.FC = () => {
     setShowForm(false);
     setEditingId(null);
     setFormData(EMPTY_FORM);
+    setConfirmingDiscard(false);
+  };
+
+  const formChanged = (Object.keys(formData) as (keyof TaskForm)[])
+    .some((key) => formData[key] !== formStart[key]);
+
+  // Cancel asks first when there are unsaved edits.
+  const requestCloseForm = () => {
+    if (formChanged) setConfirmingDiscard(true);
+    else closeForm();
   };
 
   const handleChange = (
@@ -208,7 +223,7 @@ const TasksPage: React.FC = () => {
             <Button
               variant="contained"
               startIcon={<AddIcon />}
-              onClick={showForm ? closeForm : openCreate}
+              onClick={showForm ? requestCloseForm : openCreate}
               sx={{ bgcolor: 'var(--accent)', '&:hover': { bgcolor: 'var(--accent-dark)' } }}
             >
               {showForm ? 'Cancel' : 'New Task'}
@@ -289,7 +304,7 @@ const TasksPage: React.FC = () => {
                 />
               </Box>
               <Box sx={{ display: 'flex', gap: 1.5, justifyContent: 'flex-end' }}>
-                <Button onClick={closeForm} sx={{ color: '#64748B' }}>
+                <Button onClick={requestCloseForm} sx={{ color: '#64748B' }}>
                   Cancel
                 </Button>
                 <Button
@@ -450,6 +465,23 @@ const TasksPage: React.FC = () => {
         <DialogActions>
           <Button onClick={() => setDeleting(null)} sx={{ color: '#64748B' }}>Cancel</Button>
           <Button color="error" variant="contained" onClick={confirmDelete}>Delete</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={confirmingDiscard} onClose={() => setConfirmingDiscard(false)}>
+        <DialogTitle>Discard changes?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            {editingId
+              ? "Your edits to this task haven't been saved."
+              : "This new task hasn't been created yet."}
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button autoFocus onClick={() => setConfirmingDiscard(false)} sx={{ color: '#64748B' }}>
+            Keep editing
+          </Button>
+          <Button color="error" variant="contained" onClick={closeForm}>Discard</Button>
         </DialogActions>
       </Dialog>
 

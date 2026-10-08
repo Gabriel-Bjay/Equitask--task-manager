@@ -16,3 +16,18 @@ export const apiErrorMessage = (error: any, fallback: string): string => {
   }
   return fallback;
 };
+
+// Per-field messages from a DRF validation error, first message per field,
+// e.g. {"email": "user with this email already exists."}.
+export const apiFieldErrors = (error: any): Record<string, string> => {
+  const data = error?.response?.data;
+  const fields: Record<string, string> = {};
+  if (!data || typeof data !== 'object') return fields;
+
+  for (const [field, value] of Object.entries(data)) {
+    if (['error', 'detail', 'message', 'non_field_errors'].includes(field)) continue;
+    const first = Array.isArray(value) ? value[0] : value;
+    if (typeof first === 'string') fields[field] = first;
+  }
+  return fields;
+};

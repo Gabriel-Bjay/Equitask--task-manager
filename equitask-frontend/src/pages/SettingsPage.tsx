@@ -21,7 +21,7 @@ import { clearSession } from '../store/slices/authSlice';
 import { useNavigate } from 'react-router-dom';
 import { AppDispatch } from '../store/store';
 import { useThemeContext } from '../context/ThemeContext';
-import { apiErrorMessage } from '../utils/apiError';
+import { apiErrorMessage, apiFieldErrors } from '../utils/apiError';
 
 // In-app alerts the backend sends (see apps/notifications); there is no email.
 const ALERTS = [
@@ -68,6 +68,10 @@ const SettingsPage: React.FC = () => {
   const [showCurrent, setShowCurrent] = useState(false);
   const [showNew, setShowNew] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
+  // Shown under the field they belong to; `form` covers anything else.
+  const [passwordErrors, setPasswordErrors] = useState<
+    Partial<Record<'current' | 'newPass' | 'confirm' | 'form', string>>
+  >({});
   const { accentColor, setAccentColor, compactMode, setCompactMode, animationsEnabled, setAnimationsEnabled } = useThemeContext();
 
   // Deactivate account
@@ -77,21 +81,21 @@ const SettingsPage: React.FC = () => {
 
   const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setPasswords({ ...passwords, [e.target.name]: e.target.value });
+    setPasswordErrors({ ...passwordErrors, [e.target.name]: undefined, form: undefined });
   };
 
   const handleSavePassword = async () => {
-    if (!passwords.current || !passwords.newPass || !passwords.confirm) {
-      toast.error('Please fill in all password fields');
+    const problems: typeof passwordErrors = {};
+    if (!passwords.current) problems.current = 'Enter your current password.';
+    if (!passwords.newPass) problems.newPass = 'Enter a new password.';
+    else if (passwords.newPass.length < 8) problems.newPass = 'Use at least 8 characters.';
+    if (!passwords.confirm) problems.confirm = 'Enter the new password again.';
+    else if (passwords.newPass !== passwords.confirm) problems.confirm = "Passwords don't match.";
+    if (Object.keys(problems).length) {
+      showPasswordErrors(problems);
       return;
     }
-    if (passwords.newPass !== passwords.confirm) {
-      toast.error("New passwords don't match");
-      return;
-    }
-    if (passwords.newPass.length < 8) {
-      toast.error('Password must be at least 8 characters');
-      return;
-    }
+    setPasswordErrors({});
     setSavingPassword(true);
     try {
       await api.post('/auth/change-password/', {
@@ -101,10 +105,22 @@ const SettingsPage: React.FC = () => {
       toast.success('Password updated successfully');
       setPasswords({ current: '', newPass: '', confirm: '' });
     } catch (err) {
-      toast.error(apiErrorMessage(err, 'Failed to update password'));
+      const fields = apiFieldErrors(err);
+      const problems: typeof passwordErrors = {};
+      if (fields.current_password) problems.current = fields.current_password;
+      if (fields.new_password) problems.newPass = fields.new_password;
+      if (!Object.keys(problems).length) problems.form = apiErrorMessage(err, 'Failed to update password');
+      showPasswordErrors(problems);
     } finally {
       setSavingPassword(false);
     }
+  };
+
+  // Focus the first field with a problem so keyboard and screen-reader users land on it.
+  const showPasswordErrors = (problems: typeof passwordErrors) => {
+    setPasswordErrors(problems);
+    const first = (['current', 'newPass', 'confirm'] as const).find((name) => problems[name]);
+    if (first) setTimeout(() => document.getElementById(`password-${first}`)?.focus());
   };
 
   const handleDeactivateAccount = async () => {
@@ -153,9 +169,16 @@ const SettingsPage: React.FC = () => {
                   subtitle="Update your account password"
                 />
                 <Stack spacing={2}>
+                  {passwordErrors.form && (
+                    <Alert severity="error" sx={{ borderRadius: '10px' }}>{passwordErrors.form}</Alert>
+                  )}
                   <TextField
                     fullWidth
+                    id="password-current"
                     label="Current Password"
+                    autoComplete="current-password"
+                    error={Boolean(passwordErrors.current)}
+                    helperText={passwordErrors.current}
                     name="current"
                     type={showCurrent ? 'text' : 'password'}
                     value={passwords.current}
@@ -178,12 +201,15 @@ const SettingsPage: React.FC = () => {
                   />
                   <TextField
                     fullWidth
+                    id="password-newPass"
                     label="New Password"
                     name="newPass"
+                    autoComplete="new-password"
                     type={showNew ? 'text' : 'password'}
                     value={passwords.newPass}
                     onChange={handlePasswordChange}
-                    helperText="Minimum 8 characters"
+                    error={Boolean(passwordErrors.newPass)}
+                    helperText={passwordErrors.newPass || 'Minimum 8 characters'}
                     InputProps={{
                       endAdornment: (
                         <InputAdornment position="end">
@@ -202,20 +228,22 @@ const SettingsPage: React.FC = () => {
                   />
                   <TextField
                     fullWidth
+                    id="password-confirm"
                     label="Confirm New Password"
                     name="confirm"
+                    autoComplete="new-password"
                     type="password"
                     value={passwords.confirm}
                     onChange={handlePasswordChange}
                     error={
-                      passwords.confirm.length > 0 &&
-                      passwords.newPass !== passwords.confirm
+                      Boolean(passwordErrors.confirm) ||
+                      (passwords.confirm.length > 0 && passwords.newPass !== passwords.confirm)
                     }
                     helperText={
-                      passwords.confirm.length > 0 &&
-                      passwords.newPass !== passwords.confirm
+                      passwordErrors.confirm ||
+                      (passwords.confirm.length > 0 && passwords.newPass !== passwords.confirm
                         ? "Passwords don't match"
-                        : ''
+                        : '')
                     }
                   />
                   <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
