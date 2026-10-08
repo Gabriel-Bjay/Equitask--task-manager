@@ -10,6 +10,7 @@ import { demoLogin, login } from "../../store/slices/authSlice";
 import { authService } from "../../services/authService";
 import { DemoAccount } from "../../types/auth.types";
 import { toast } from "react-toastify";
+import WakeNotice, { useWakeNotice } from "../common/WakeNotice";
 
 const features = [
   "Equitable task distribution across your team",
@@ -34,6 +35,7 @@ const LoginPage: React.FC = () => {
   // Offered only while the API's public demo is on.
   const [demoAccounts, setDemoAccounts] = useState<DemoAccount[]>([]);
   const [demoChecking, setDemoChecking] = useState(true);
+  const { waking, track } = useWakeNotice();
 
   useEffect(() => {
     if (isAuthenticated) navigate("/dashboard");
@@ -41,17 +43,17 @@ const LoginPage: React.FC = () => {
 
   useEffect(() => {
     let active = true;
-    authService.demoAccounts()
+    track(authService.demoAccounts())
       .then((accounts) => { if (active) setDemoAccounts(accounts); })
       .catch(() => { /* No demo on this deployment; the form still works. */ })
       .finally(() => { if (active) setDemoChecking(false); });
     return () => { active = false; };
-  }, []);
+  }, [track]);
 
   const handleDemo = async (role: DemoAccount["role"]) => {
     setLoading(true);
     try {
-      await dispatch(demoLogin(role)).unwrap();
+      await track(dispatch(demoLogin(role)).unwrap());
       toast.success(`Signed in as the demo ${DEMO_ROLES[role].label.toLowerCase()}.`);
       navigate("/dashboard");
     } catch (err: any) {
@@ -65,7 +67,7 @@ const LoginPage: React.FC = () => {
     e.preventDefault();
     setLoading(true);
     try {
-      await dispatch(login({ email, password })).unwrap();
+      await track(dispatch(login({ email, password })).unwrap());
       toast.success("Welcome back!");
       navigate("/dashboard");
     } catch (err: any) {
@@ -216,6 +218,8 @@ const LoginPage: React.FC = () => {
               {loading ? "Signing in..." : "Sign in"}
             </Button>
           </Box>
+
+          <WakeNotice waking={waking} />
 
           {(demoChecking || demoAccounts.length > 0) && (
             <Box sx={{ mt: 3 }}>
